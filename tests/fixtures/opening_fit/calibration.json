@@ -1,0 +1,12 @@
+{
+  "contract": "gat-fit-held-out-v1",
+  "status": "NO_MEASUREMENTS",
+  "groups": [],
+  "residuals": [],
+  "independence": "declared by caller; not verified",
+  "limitations": [
+    "correlated samples are not independent trials",
+    "no coverage confidence intervals or acceptance authority",
+    "calibration provenance must be independently reviewed"
+  ]
+}

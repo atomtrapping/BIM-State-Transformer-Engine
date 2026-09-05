@@ -48,7 +48,7 @@ RGBA values are linear floats; hex values are their 8-bit form.
 | proceed | `ACCEPT`, `SATISFIED`, `ADMISSIBLE`, `PASS`, `READY` | (0.10, 0.70, 0.20, 1.0) | `#1ab233` |
 | stop | `REJECT`, `VIOLATED`, `BLOCKED`, `FAIL` | (0.85, 0.08, 0.08, 1.0) | `#d91414` |
 | attention | `REQUEST_EVIDENCE`, `UNRESOLVED`, `WARN`, `NEEDS_GEOMETRY_DERIVATION`, `MISSING_SOURCE_DATA` | (0.95, 0.55, 0.05, 1.0) | `#f28c0d` |
-| undecided | `ERROR`, `NOT_RUN` | (0.35, 0.35, 0.35, 1.0) | `#595959` |
+| undecided | `ERROR`, `NOT_RUN`, `UNVALIDATED`, `NO_MEASUREMENTS` | (0.35, 0.35, 0.35, 1.0) | `#595959` |
 
 The six terms shared with the Blender panel (`ACCEPT`, `REJECT`,
 `REQUEST_EVIDENCE`, `SATISFIED`, `VIOLATED`, `UNRESOLVED`) must stay
@@ -159,6 +159,22 @@ assurance flags render `no` in plain sight and audit statuses like
 * `gat report response.json --html -o report.html` — the same content as a
   self-contained, script-free HTML page for sharing and archiving, e.g.
   `gat-headless request.json | gat report - --html -o decision.html`.
+* `gat report prediction.json [--html]` — an opening-fit prediction
+  (`gat-opening-fit-v1`). The headline is the *field acceptance*
+  (`REQUEST_EVIDENCE` until measurements exist), never the model's
+  prediction, which appears as a badged card beside the calibration
+  status (`UNVALIDATED`). Pose assumptions render in mm and mrad and are
+  named by their assumption id, because they are an assessment's sidecar,
+  not belief; the frames table, the 32 margins (mean ± sigma in mm,
+  P(violates); a row is accented `VIOLATED` when it cannot be cleared at
+  the stated confidence), the probability bounds, the limitations verbatim,
+  and three identities (world, frame representation, assessment). A record
+  that does not declare whether its inputs are measured or synthetic says
+  so in its notes. Refused, never drawn: an acceptance that outruns its
+  calibration, a covariance that does not match its margins, or bound
+  dimensions naming entities outside the declared subjects. The companion
+  `gat-fit-held-out-v1` evaluation renders its groups and residuals as
+  emitted; an empty one is an empty state (`NO_MEASUREMENTS`), not a pass.
 * `gat ledger ledger.json [--html] [-o PATH]` — the execution-ledger
   timeline described above. Exit codes: 0 rendered timeline, 2 invalid or
   tampered chain, 3 I/O error.

@@ -33,6 +33,8 @@ from typing import Mapping, Sequence
 
 RESPONSE_FORMAT = "gat-headless-response-v1"
 AUDIT_FORMAT = "gat-ifc-audit-v1"
+FIT_FORMAT = "gat-opening-fit-v1"
+FIT_CALIBRATION_FORMAT = "gat-fit-held-out-v1"
 
 #: Signal classes — what a rendered term asks of the reader.
 PROCEED = "proceed"
@@ -60,6 +62,10 @@ SIGNAL_CLASSES: dict[str, str] = {
     "MISSING_SOURCE_DATA": ATTENTION,
     "ERROR": UNDECIDED,
     "NOT_RUN": UNDECIDED,
+    # Opening-fit assessment: a prediction nobody has measured against, and
+    # a held-out evaluation with nothing to evaluate, are not decisions.
+    "UNVALIDATED": UNDECIDED,
+    "NO_MEASUREMENTS": UNDECIDED,
 }
 
 #: Signal class -> linear RGBA.  The six decision terms shared with the
@@ -295,6 +301,10 @@ def decode_response(value: object) -> DecisionReport:
     response = _object(value, "response")
     if response.get("format") == AUDIT_FORMAT:
         return _audit_report(response)
+    if response.get("contract") == FIT_FORMAT:
+        return _fit_report(response)
+    if response.get("contract") == FIT_CALIBRATION_FORMAT:
+        return _fit_calibration_report(response)
     if response.get("format") != RESPONSE_FORMAT:
         raise ValueError(f"unsupported response format {response.get('format')!r}")
     if set(response) == {"format", "error"}:
@@ -906,6 +916,323 @@ def _audit_report(document: Mapping[str, object]) -> DecisionReport:
         subject=name,
         subline="fail-closed IFC compatibility audit",
         notes=(),
+        blocks=tuple(blocks),
+        footers=(NON_AUTHORIZING_FOOTER, READ_ONLY_FOOTER),
+    )
+
+
+def _fit_report(document: Mapping[str, object]) -> DecisionReport:
+    """Render-ready opening-fit prediction (``gat-opening-fit-v1``).
+
+    The headline is the field *acceptance*, never the model's prediction: a
+    fit the model predicts but no measurement has validated is still a
+    request for evidence.  Fail-closed: vocabulary outside the palette, an
+    acceptance that outruns its calibration status, a covariance that does
+    not match its margins, or bound dimensions naming entities outside the
+    declared subjects are refused, never drawn.
+    """
+    acceptance = _string(document.get("acceptance"), "acceptance")
+    if acceptance not in ACCEPTANCE_DISPOSITIONS:
+        raise ValueError(f"unsupported fit acceptance {acceptance!r}")
+    prediction = _string(document.get("model_prediction"), "model_prediction")
+    if prediction not in BEAM_DISPOSITIONS:
+        raise ValueError(f"unsupported fit prediction {prediction!r}")
+    calibration = _string(document.get("calibration_status"), "calibration_status")
+    if calibration not in SIGNAL_CLASSES:
+        raise ValueError(f"unsupported calibration status {calibration!r}")
+    if acceptance == "ACCEPT" and calibration == "UNVALIDATED":
+        raise ValueError("a fit report cannot accept on unvalidated calibration")
+    world_digest = _string(document.get("world_digest"), "world_digest")
+    frame_digest = _string(
+        document.get("frame_representation_digest"), "frame_representation_digest"
+    )
+    assessment_digest = _string(document.get("assessment_digest"), "assessment_digest")
+    confidence = _number(document.get("confidence"), "confidence")
+    clearance = _number(document.get("required_clearance_m"), "required_clearance_m")
+    lower = _number(document.get("p_any_violation_lower"), "p_any_violation_lower")
+    upper = _number(document.get("p_any_violation_upper"), "p_any_violation_upper")
+    if not 0.0 <= lower <= upper <= 1.0:
+        raise ValueError("violation probability bounds are inconsistent")
+    nominal = document.get("deterministic_nominal_fit")
+    if not isinstance(nominal, bool):
+        raise ValueError("deterministic_nominal_fit must be a boolean")
+
+    subjects = [
+        f"{_string(_object(item, 'subject').get('ifc_class'), 'subject.ifc_class')}:"
+        f"{_string(_object(item, 'subject').get('global_id'), 'subject.global_id')}"
+        for item in _array(document.get("subjects"), "subjects")
+    ]
+    binding = _object(document.get("binding"), "binding")
+    dimensions = [
+        _string(item, "binding.dimension")
+        for item in _array(binding.get("dimensions"), "binding.dimensions")
+    ]
+    dimensions_m = [
+        _number(item, "binding.dimension_m")
+        for item in _array(binding.get("dimensions_m"), "binding.dimensions_m")
+    ]
+    if len(dimensions) != 5 or len(dimensions_m) != 5:
+        raise ValueError(
+            "binding must name five dimensions: opening width/height, assembly x/y/z"
+        )
+    entities = [name.rsplit(".", 1)[0] for name in dimensions]
+    if any(entity not in subjects for entity in entities):
+        raise ValueError("bound dimensions name entities outside the declared subjects")
+    opening_entity, assembly_entity = entities[0], entities[2]
+
+    risks = _array(document.get("risks"), "risks")
+    covariance = _array(document.get("margin_covariance_m2"), "margin_covariance_m2")
+    if not risks or len(covariance) != len(risks) or any(
+        len(_array(row, "margin covariance row")) != len(risks) for row in covariance
+    ):
+        raise ValueError("margin covariance does not match the margins")
+    risk_rows: list[tuple[str, ...]] = []
+    risk_accents: list[str] = []
+    tightest: tuple[str, ...] | None = None
+    tightest_mean = float("inf")
+    for item in risks:
+        risk = _object(item, "risk")
+        p_violates = _number(risk.get("p_violates"), "risk.p_violates")
+        mean = _number(risk.get("mean_m"), "risk.mean_m")
+        sigma = _number(risk.get("sigma_m"), "risk.sigma_m")
+        if not 0.0 <= p_violates <= 1.0 or sigma < 0.0:
+            raise ValueError("margin risk values are out of range")
+        row = (
+            _string(risk.get("id"), "risk.id"),
+            _string(risk.get("frame_id"), "risk.frame_id"),
+            f"{mean * 1000:.1f} +- {sigma * 1000:.1f} mm",
+            format_probability(p_violates),
+        )
+        risk_rows.append(row)
+        risk_accents.append("VIOLATED" if p_violates > 1.0 - confidence else "")
+        if mean < tightest_mean:
+            tightest, tightest_mean = row, mean
+    # Long tables truncate at 20 rows with an explicit note, like every other
+    # table; the tightest margin is named on the prediction card so the
+    # truncation can never hide it.
+    risk_overflow = f"and {len(risk_rows) - 20} more margins" if len(risk_rows) > 20 else ""
+    risk_rows, risk_accents = risk_rows[:20], risk_accents[:20]
+
+    pose = _object(document.get("pose"), "pose")
+    order = [_string(item, "pose.order") for item in _array(pose.get("order"), "pose.order")]
+    pose_cov = _array(pose.get("covariance"), "pose.covariance")
+    if len(pose_cov) != 6 * len(order):
+        raise ValueError("pose covariance does not match the pose order")
+    pose_fields: list[tuple[str, str]] = [
+        ("convention", _string(pose.get("convention"), "pose.convention")),
+        ("assumption", _string(pose.get("assumption_id"), "pose.assumption_id")),
+    ]
+    for index, body in enumerate(order):
+        base = 6 * index
+        sigmas = []
+        for offset in range(6):
+            row = _array(pose_cov[base + offset], "pose covariance row")
+            variance = _number(row[base + offset], "pose variance")
+            if variance < 0.0:
+                raise ValueError("pose variance is negative")
+            sigmas.append(variance ** 0.5)
+        pose_fields.append(
+            (
+                f"{body} position sigma",
+                " / ".join(f"{value * 1000:.2f}" for value in sigmas[:3]) + " mm",
+            )
+        )
+        pose_fields.append(
+            (
+                f"{body} rotation sigma",
+                " / ".join(f"{value * 1000:.2f}" for value in sigmas[3:]) + " mrad",
+            )
+        )
+    cross = _array(pose.get("raw_pose_cross_covariance"), "pose.raw_pose_cross_covariance")
+    correlated = any(
+        abs(_number(value, "cross covariance")) > 0.0
+        for row in cross
+        for value in _array(row, "cross covariance row")
+    )
+    pose_fields.append(
+        (
+            "dimensions and pose",
+            "correlated (cross-covariance declared)"
+            if correlated
+            else "declared independent (zero cross-covariance)",
+        )
+    )
+    canonical = pose.get("canonical_placement_uncertainty")
+    if not isinstance(canonical, bool):
+        raise ValueError("canonical_placement_uncertainty must be a boolean")
+    pose_fields.append(("canonical placement uncertainty", _yes_no(canonical)))
+
+    frame_rows: list[tuple[str, ...]] = []
+    for item in _array(document.get("frames"), "frames"):
+        frame = _object(item, "frame")
+        translation = [
+            _number(value, "frame.translation_m")
+            for value in _array(frame.get("translation_m"), "frame.translation_m")
+        ]
+        parent = frame.get("parent_id")
+        frame_rows.append(
+            (
+                _string(frame.get("id"), "frame.id"),
+                "root" if parent is None else _string(parent, "frame.parent_id"),
+                _string(frame.get("unit"), "frame.unit"),
+                ", ".join(format_number(value) for value in translation) + " m",
+            )
+        )
+
+    inputs = document.get("inputs")
+    notes: list[str] = []
+    if isinstance(inputs, str):
+        notes.append(f"inputs: {inputs}")
+        if "synthetic" in inputs.lower():
+            notes.append(
+                "SYNTHETIC INPUTS: invented dimensions and pose assumptions, not a building."
+            )
+    else:
+        notes.append(
+            "The record does not declare whether its inputs are measured or synthetic."
+        )
+    notes.extend(
+        _string(item, "limitation") for item in _array(document.get("limitations"), "limitations")
+    )
+
+    blocks: list[Card | Table] = [
+        Card(
+            "prediction",
+            (
+                ("model prediction", prediction),
+                ("nominal fit", _yes_no(nominal)),
+                (
+                    "P(any violation)",
+                    f"{format_probability(lower)}..{format_probability(upper)}",
+                ),
+                ("required clearance", f"{clearance * 1000:.1f} mm per edge"),
+                ("confidence", f"{confidence:.0%}"),
+                (
+                    "tightest margin",
+                    f"{tightest[0]} {tightest[2]} (P(violates) {tightest[3]})"
+                    if tightest is not None
+                    else "none",
+                ),
+            ),
+            accent=prediction,
+        ),
+        Card(
+            "calibration",
+            (
+                ("status", calibration),
+                ("field acceptance", acceptance),
+            ),
+            accent=calibration,
+        ),
+        Card(
+            "binding",
+            (
+                ("opening", opening_entity),
+                ("assembly", assembly_entity),
+                ("opening frame", _string(binding.get("opening_frame"), "binding.opening_frame")),
+                (
+                    "assembly frame",
+                    _string(binding.get("assembly_frame"), "binding.assembly_frame"),
+                ),
+                *(
+                    (name.rsplit(".", 1)[-1] + f" ({entity.split(':', 1)[0]})", f"{value:.4g} m")
+                    for name, entity, value in zip(dimensions, entities, dimensions_m)
+                ),
+            ),
+        ),
+        Card("pose assumptions", tuple(pose_fields)),
+        Table(
+            "frames",
+            ("frame", "parent", "unit", "origin in parent"),
+            tuple(frame_rows),
+            tuple("" for _ in frame_rows),
+        ),
+        Table(
+            "margins",
+            ("risk", "frame", "margin", "P(violates)"),
+            tuple(risk_rows),
+            tuple(risk_accents),
+            overflow=risk_overflow,
+        ),
+        Card(
+            "identity",
+            (
+                ("contract", FIT_FORMAT),
+                ("world", world_digest),
+                ("frame representation", frame_digest),
+                ("assessment", assessment_digest),
+            ),
+        ),
+    ]
+    footers = (
+        RECOMMENDATION_FOOTER if acceptance == "ACCEPT" else NON_AUTHORIZING_FOOTER,
+        READ_ONLY_FOOTER,
+    )
+    return DecisionReport(
+        operation="opening_fit",
+        request_id="",
+        world_digest=world_digest,
+        disposition=acceptance,
+        subject=f"{assembly_entity} into {opening_entity}",
+        subline=(
+            f"opening-fit assessment; model prediction {prediction}; "
+            f"calibration {calibration}"
+        ),
+        notes=tuple(notes),
+        blocks=tuple(blocks),
+        footers=footers,
+    )
+
+
+def _fit_calibration_report(document: Mapping[str, object]) -> DecisionReport:
+    """Render-ready held-out evaluation (``gat-fit-held-out-v1``).
+
+    Groups and residuals are rendered as the evaluator emitted them; an
+    empty evaluation is an honest empty state, never a pass.
+    """
+    status = _string(document.get("status"), "status")
+    if status not in SIGNAL_CLASSES:
+        raise ValueError(f"unsupported calibration status {status!r}")
+    groups = _array(document.get("groups"), "groups")
+    residuals = _array(document.get("residuals"), "residuals")
+    blocks: list[Card | Table] = []
+    for index, item in enumerate(groups):
+        blocks.append(Card(f"group {index + 1}", tuple(_scalar_fields(_object(item, "group")))))
+    if residuals:
+        records = [_object(item, "residual") for item in residuals]
+        columns = tuple(sorted({key for record in records for key in record}))
+        rows = tuple(
+            tuple(
+                _yes_no(value) if isinstance(value, bool)
+                else format_number(float(value)) if isinstance(value, (int, float))
+                else str(value)
+                for value in (record.get(column, "") for column in columns)
+            )
+            for record in records
+        )
+        blocks.append(Table("residuals", columns, rows, tuple("" for _ in rows)))
+    blocks.append(
+        Card(
+            "evaluation",
+            (
+                ("status", status),
+                ("independence", _string(document.get("independence"), "independence")),
+                ("groups", str(len(groups))),
+                ("residuals", str(len(residuals))),
+            ),
+            accent=status,
+        )
+    )
+    return DecisionReport(
+        operation="fit_calibration",
+        request_id="",
+        world_digest="",
+        disposition=status,
+        subject="held-out calibration",
+        subline=f"{FIT_CALIBRATION_FORMAT}: {len(groups)} groups, {len(residuals)} residuals",
+        notes=tuple(
+            _string(item, "limitation") for item in _array(document.get("limitations"), "limitations")
+        ),
         blocks=tuple(blocks),
         footers=(NON_AUTHORIZING_FOOTER, READ_ONLY_FOOTER),
     )
