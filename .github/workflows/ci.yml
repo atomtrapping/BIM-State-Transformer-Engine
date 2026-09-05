@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, 'codex/**']
 
 jobs:
   test:
@@ -55,6 +55,9 @@ jobs:
 
       - name: Run the Workbench clearance walkthrough (self-asserting)
         run: python -m gat.demo.workbench ci-out/workbench
+
+      - name: Run factor-graph opening fit and report integration (self-asserting)
+        run: python -m gat.demo.opening_factors ci-out/opening-factors
 
   test-openusd:
     runs-on: ubuntu-latest

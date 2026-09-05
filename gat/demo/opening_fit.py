@@ -36,7 +36,8 @@ def run(output):
     pose = np.eye(12) * 0.001 ** 2
     report = assess_opening_fit(world, frames, binding, pose_covariance=pose,
                                raw_pose_cross_covariance=np.zeros((len(world.belief.index), 12)),
-                               assumption_id="synthetic-independent-1mm-1mrad-v1", required_clearance_m=0.01)
+                               assumption_id="synthetic-independent-1mm-1mrad-v1", required_clearance_m=0.01,
+                               inputs="synthetic")
     report_calibration = evaluate_held_out([report], [], fitting_source_ids=[])
     assert report["model_prediction"] == "SATISFIED"
     assert report["acceptance"] == "REQUEST_EVIDENCE"

@@ -24,6 +24,13 @@ def evaluate_held_out(assessments, measurements, *, fitting_source_ids, levels=(
     for record in records:
         if record.get("contract") != CONTRACT or record.get("assessment_digest") != assessment_digest(record):
             raise ValueError("unsupported or altered assessment")
+        # An inference report carries sources already used for fitting. Do not
+        # let an omitted caller list silently turn them into held-out checks.
+        graph = record.get("inference", {}).get("graph", {})
+        fitting.update(graph.get("prior_dependencies", []))
+        for factor in graph.get("factors", []):
+            fitting.add(factor["source_id"])
+            fitting.update(factor["dependencies"])
     lookup = {r["assessment_digest"]: r for r in records}
     if len(lookup) != len(records):
         raise ValueError("duplicate assessment")

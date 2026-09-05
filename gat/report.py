@@ -949,6 +949,8 @@ def _fit_report(document: Mapping[str, object]) -> DecisionReport:
     assessment_digest = _string(document.get("assessment_digest"), "assessment_digest")
     confidence = _number(document.get("confidence"), "confidence")
     clearance = _number(document.get("required_clearance_m"), "required_clearance_m")
+    if not 0.5 < confidence < 1.0 or clearance < 0:
+        raise ValueError("invalid confidence or required clearance")
     lower = _number(document.get("p_any_violation_lower"), "p_any_violation_lower")
     upper = _number(document.get("p_any_violation_upper"), "p_any_violation_upper")
     if not 0.0 <= lower <= upper <= 1.0:
@@ -1004,7 +1006,8 @@ def _fit_report(document: Mapping[str, object]) -> DecisionReport:
             format_probability(p_violates),
         )
         risk_rows.append(row)
-        risk_accents.append("VIOLATED" if p_violates > 1.0 - confidence else "")
+        risk_accents.append("VIOLATED" if p_violates >= confidence else
+                            "UNRESOLVED" if p_violates > 1.0 - confidence else "")
         if mean < tightest_mean:
             tightest, tightest_mean = row, mean
     # Long tables truncate at 20 rows with an explicit note, like every other
@@ -1061,6 +1064,14 @@ def _fit_report(document: Mapping[str, object]) -> DecisionReport:
     if not isinstance(canonical, bool):
         raise ValueError("canonical_placement_uncertainty must be a boolean")
     pose_fields.append(("canonical placement uncertainty", _yes_no(canonical)))
+    if "mean_tangent" in pose:
+        tangent = [_number(value, "pose.mean_tangent") for value in _array(pose["mean_tangent"], "pose.mean_tangent")]
+        if len(tangent) != 6 * len(order):
+            raise ValueError("pose mean does not match pose order")
+        for index, body in enumerate(order):
+            start = index * 6
+            pose_fields.append((f"{body} local position correction", " / ".join(f"{v * 1000:.2f}" for v in tangent[start:start+3]) + " mm"))
+            pose_fields.append((f"{body} local rotation correction", " / ".join(f"{v * 1000:.2f}" for v in tangent[start+3:start+6]) + " mrad"))
 
     frame_rows: list[tuple[str, ...]] = []
     for item in _array(document.get("frames"), "frames"):
@@ -1082,8 +1093,10 @@ def _fit_report(document: Mapping[str, object]) -> DecisionReport:
     inputs = document.get("inputs")
     notes: list[str] = []
     if isinstance(inputs, str):
+        if inputs not in ("unknown", "synthetic", "measured", "mixed"):
+            raise ValueError("unsupported input provenance declaration")
         notes.append(f"inputs: {inputs}")
-        if "synthetic" in inputs.lower():
+        if inputs == "synthetic":
             notes.append(
                 "SYNTHETIC INPUTS: invented dimensions and pose assumptions, not a building."
             )
@@ -1094,6 +1107,16 @@ def _fit_report(document: Mapping[str, object]) -> DecisionReport:
     notes.extend(
         _string(item, "limitation") for item in _array(document.get("limitations"), "limitations")
     )
+    if "coordinate_convention" in document:
+        convention = _object(document["coordinate_convention"], "coordinate_convention")
+        notes.append("coordinate convention: " + "; ".join(f"{key}={value if value is not None else 'undeclared'}"
+                                                           for key, value in convention.items()))
+    if "inference" in document:
+        inference = _object(document["inference"], "inference")
+        if inference.get("contract") != "gat-opening-factor-bridge-v1" or inference.get("canonical_state_committed") is not False:
+            raise ValueError("unsupported or committed opening factor inference")
+        notes.append("FACTOR INFERENCE: fixed first-order linearization at the recorded reference frames. Pose corrections are local tangent means; frames are not rebased. In-sample residuals are not calibration.")
+        notes.append("factor graph: " + _string(inference.get("graph_digest"), "inference.graph_digest"))
 
     blocks: list[Card | Table] = [
         Card(
@@ -1191,13 +1214,28 @@ def _fit_calibration_report(document: Mapping[str, object]) -> DecisionReport:
     empty evaluation is an honest empty state, never a pass.
     """
     status = _string(document.get("status"), "status")
-    if status not in SIGNAL_CLASSES:
+    if status not in ("NO_MEASUREMENTS", "DESCRIPTIVE_EVALUATION", "UNVALIDATED"):
         raise ValueError(f"unsupported calibration status {status!r}")
     groups = _array(document.get("groups"), "groups")
     residuals = _array(document.get("residuals"), "residuals")
+    if status == "NO_MEASUREMENTS" and (groups or residuals):
+        raise ValueError("NO_MEASUREMENTS cannot contain measurements")
+    if status == "DESCRIPTIVE_EVALUATION" and not residuals:
+        raise ValueError("DESCRIPTIVE_EVALUATION requires residuals")
     blocks: list[Card | Table] = []
     for index, item in enumerate(groups):
         blocks.append(Card(f"group {index + 1}", tuple(_scalar_fields(_object(item, "group")))))
+        coverage = _array(_object(item, "group").get("coverage", []), "coverage")
+        coverage_rows = []
+        for entry in coverage:
+            row = _object(entry, "coverage entry")
+            nominal = _number(row.get("nominal"), "coverage.nominal")
+            observed = _number(row.get("observed"), "coverage.observed")
+            if not 0 < nominal < 1 or not 0 <= observed <= 1:
+                raise ValueError("coverage values out of range")
+            coverage_rows.append((f"{nominal:.1%}", f"{observed:.1%}"))
+        if coverage_rows:
+            blocks.append(Table(f"group {index + 1} coverage", ("nominal", "observed"), tuple(coverage_rows), tuple("" for _ in coverage_rows)))
     if residuals:
         records = [_object(item, "residual") for item in residuals]
         columns = tuple(sorted({key for record in records for key in record}))
@@ -1220,14 +1258,14 @@ def _fit_calibration_report(document: Mapping[str, object]) -> DecisionReport:
                 ("groups", str(len(groups))),
                 ("residuals", str(len(residuals))),
             ),
-            accent=status,
+            accent="UNVALIDATED" if status == "DESCRIPTIVE_EVALUATION" else status,
         )
     )
     return DecisionReport(
         operation="fit_calibration",
         request_id="",
         world_digest="",
-        disposition=status,
+        disposition="UNVALIDATED" if status == "DESCRIPTIVE_EVALUATION" else status,
         subject="held-out calibration",
         subline=f"{FIT_CALIBRATION_FORMAT}: {len(groups)} groups, {len(residuals)} residuals",
         notes=tuple(

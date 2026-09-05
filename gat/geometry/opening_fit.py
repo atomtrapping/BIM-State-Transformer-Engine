@@ -88,7 +88,8 @@ def margin_linearization(dimensions_m, opening_from_assembly):
 
 def assess_opening_fit(world, frames: FrameGraph, binding: OpeningFitBinding, *,
                        pose_covariance, raw_pose_cross_covariance,
-                       assumption_id: str, required_clearance_m=0.0, confidence=0.95):
+                       assumption_id: str, required_clearance_m=0.0, confidence=0.95,
+                       inputs="unknown"):
     """Push the world's dimensional belief plus an explicit pose sidecar.
 
     pose_covariance: 12x12, opening then assembly right-local tangent poses.
@@ -98,6 +99,8 @@ def assess_opening_fit(world, frames: FrameGraph, binding: OpeningFitBinding, *,
     """
     if not isinstance(assumption_id, str) or not assumption_id.strip():
         raise ValueError("assumption_id must identify the supplied pose assumptions")
+    if inputs not in ("unknown", "synthetic", "measured", "mixed"):
+        raise ValueError("unsupported input provenance declaration")
     if not math.isfinite(required_clearance_m) or required_clearance_m < 0:
         raise ValueError("required clearance must be finite and nonnegative")
     if not math.isfinite(confidence) or not 0.5 < confidence < 1:
@@ -132,6 +135,10 @@ def assess_opening_fit(world, frames: FrameGraph, binding: OpeningFitBinding, *,
     prediction = "SATISFIED" if upper <= 1 - confidence else "VIOLATED" if lower >= confidence else "UNRESOLVED"
     record = {
         "contract": CONTRACT, "world_digest": world.digest(),
+        "inputs": inputs,
+        "coordinate_convention": {"handedness": "right", "translation_unit": "m", "rotation_unit": "rad",
+                                  "up": None, "crs": None, "epoch": None,
+                                  "aperture_axes": ["X", "Z"], "passage_axis": "Y"},
         "frame_representation_digest": frames.representation_digest(),
         "subjects": [{"ifc_class": e.ifc_class, "global_id": e.global_id} for e in (opening_id, assembly_id)],
         "frames": [{"id": f.frame_id, "parent_id": f.parent_id, "unit": f.unit.value,

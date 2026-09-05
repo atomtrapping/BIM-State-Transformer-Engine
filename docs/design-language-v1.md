@@ -166,8 +166,9 @@ assurance flags render `no` in plain sight and audit statuses like
   status (`UNVALIDATED`). Pose assumptions render in mm and mrad and are
   named by their assumption id, because they are an assessment's sidecar,
   not belief; the frames table, the 32 margins (mean ± sigma in mm,
-  P(violates); a row is accented `VIOLATED` when it cannot be cleared at
-  the stated confidence), the probability bounds, the limitations verbatim,
+  P(violates); a row is accented `VIOLATED` only when violation reaches
+  the stated confidence, and `UNRESOLVED` between decision thresholds),
+  the probability bounds, the limitations verbatim,
   and three identities (world, frame representation, assessment). A record
   that does not declare whether its inputs are measured or synthetic says
   so in its notes. Refused, never drawn: an acceptance that outruns its
@@ -175,6 +176,10 @@ assurance flags render `no` in plain sight and audit statuses like
   dimensions naming entities outside the declared subjects. The companion
   `gat-fit-held-out-v1` evaluation renders its groups and residuals as
   emitted; an empty one is an empty state (`NO_MEASUREMENTS`), not a pass.
+  A populated `DESCRIPTIVE_EVALUATION` shows nominal/observed coverage
+  tables with an `UNVALIDATED` headline. Factor-conditioned predictions
+  display local tangent corrections and explicitly retain reference frames;
+  they do not imply rebased canonical placements or field calibration.
 * `gat ledger ledger.json [--html] [-o PATH]` — the execution-ledger
   timeline described above. Exit codes: 0 rendered timeline, 2 invalid or
   tampered chain, 3 I/O error.
