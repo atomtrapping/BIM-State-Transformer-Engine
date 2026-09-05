@@ -170,6 +170,14 @@ together.
 Nothing above is rendered until the engine emits it; the surfaces will
 refuse a pose or residual record whose frame id they cannot resolve.
 
+The first emitted records are the `gat-opening-fit-v1` prediction and the
+`gat-fit-held-out-v1` evaluation. Their report renderings are described
+under *Surfaces* in the design language: the headline is the field
+acceptance, the pose sidecar is drawn as an assessment assumption named by
+its id, and the global exact-placement statement stays on the frame record
+because the sidecar is not canonical belief. Drawing the assessment pose in
+STRUCTURE waits for an IFC-backed case with a scene to draw it in.
+
 ## Rules that hold in every mode
 
 1. **Projection never mutates its source.** The workbench renders and
