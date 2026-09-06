@@ -19,7 +19,10 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering",
 ]
-dependencies = ["numpy>=1.24"]
+# Exact world identity hashes derived float64 arrays. Expanding this runtime
+# dependency requires the unchanged legacy replay qualification, not just
+# approximate numerical tests. See docs/execution-envelope-v1.md.
+dependencies = ["numpy==2.3.5"]
 
 [project.scripts]
 gat = "gat.cli:main"
