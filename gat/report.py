@@ -35,6 +35,15 @@ RESPONSE_FORMAT = "gat-headless-response-v1"
 AUDIT_FORMAT = "gat-ifc-audit-v1"
 FIT_FORMAT = "gat-opening-fit-v1"
 FIT_CALIBRATION_FORMAT = "gat-fit-held-out-v1"
+VOI_PLAN_SCHEMA = "gat.finite-decision-plan.v1"
+VOI_EXPERIMENT_SCHEMA = "gat.synthetic-clearance-voi-experiment.v1"
+VOI_METHOD = "gat.finite-decision-voi.v1"
+_VOI_DISPOSITIONS = frozenset({"RECOMMEND_MEASUREMENT", "NO_WORTHWHILE_AVAILABLE_MEASUREMENT"})
+_VOI_DECISIONS = frozenset({"FIT", "REJECT"})
+_VOI_AVAILABILITY = frozenset({"AVAILABLE", "UNAVAILABLE", "UNKNOWN"})
+_VOI_PERMISSION = frozenset({"PERMITTED", "FORBIDDEN", "UNKNOWN"})
+_VOI_MODEL_STATUS = frozenset({"SYNTHETIC", "DECLARED_UNVALIDATED"})
+_VOI_POLICY_ORDER = ("no_measurement", "cheapest_first", "largest_uncertainty_first", "one_step_voi", "measure_everything")
 #: The evaluator's residual record, as ``evaluate_held_out`` emits it; a
 #: residual carrying all of these renders as a predicted-vs-measured
 #: comparison, anything else renders as emitted.
@@ -79,6 +88,12 @@ SIGNAL_CLASSES: dict[str, str] = {
     # a held-out evaluation with nothing to evaluate, are not decisions.
     "UNVALIDATED": UNDECIDED,
     "NO_MEASUREMENTS": UNDECIDED,
+    # Measurement recommendation: a proposed measurement asks for attention;
+    # "nothing is worth its cost" and "not field-validated" are not decisions.
+    "RECOMMEND_MEASUREMENT": ATTENTION,
+    "NO_WORTHWHILE_AVAILABLE_MEASUREMENT": UNDECIDED,
+    "NOT_ESTABLISHED": UNDECIDED,
+    "NOT_AVAILABLE": UNDECIDED,
 }
 
 #: Signal class -> linear RGBA.  The six decision terms shared with the
@@ -344,6 +359,8 @@ def decode_response(value: object) -> DecisionReport:
         return _fit_report(response)
     if response.get("contract") == FIT_CALIBRATION_FORMAT:
         return _fit_calibration_report(response)
+    if response.get("schema") in (VOI_PLAN_SCHEMA, VOI_EXPERIMENT_SCHEMA):
+        return _voi_report(response)
     if response.get("format") != RESPONSE_FORMAT:
         raise ValueError(f"unsupported response format {response.get('format')!r}")
     if set(response) == {"format", "error"}:
@@ -1365,6 +1382,295 @@ def _fit_report(document: Mapping[str, object]) -> DecisionReport:
         notes=tuple(notes),
         blocks=tuple(blocks),
         footers=footers,
+    )
+
+def _close(left: float, right: float, scale: float = 1.0) -> bool:
+    return abs(left - right) <= 1e-9 * max(1.0, abs(scale))
+
+
+def _voi_result(document: Mapping[str, object], label: str) -> dict[str, object]:
+    """One evaluated acquisition set (``gat.finite-decision-voi.v1``): a fixed
+    set of measurements, its cost, its expected posterior loss and every
+    possible reading with the decision that would follow.  Refused when the
+    arithmetic does not close, when a branch is impossible (probability zero
+    or outside [0, 1], probabilities not summing to one) or when the record
+    claims an authorization no recommendation can carry."""
+    if document.get("schema") != VOI_METHOD:
+        raise ValueError(f"{label}: unsupported value-of-information schema {document.get('schema')!r}")
+    if document.get("physical_action_authorized") is not False:
+        raise ValueError(f"{label}: a recommendation cannot claim physical action authorization")
+    ids = [_string(item, f"{label}.measurement_ids") for item in _array(document.get("measurement_ids"), f"{label}.measurement_ids")]
+    cost = _number(document.get("acquisition_cost"), f"{label}.acquisition_cost")
+    posterior_loss = _number(document.get("expected_posterior_loss"), f"{label}.expected_posterior_loss")
+    total = _number(document.get("expected_total_loss"), f"{label}.expected_total_loss")
+    reduction = _number(document.get("expected_loss_reduction"), f"{label}.expected_loss_reduction")
+    net = _number(document.get("net_value"), f"{label}.net_value")
+    error = _number(document.get("model_expected_decision_error"), f"{label}.model_expected_decision_error")
+    brier = _number(document.get("model_expected_brier_score"), f"{label}.model_expected_brier_score")
+    baseline = _object(document.get("baseline"), f"{label}.baseline")
+    baseline_loss = _number(baseline.get("expected_loss"), f"{label}.baseline.expected_loss")
+    baseline_p = _number(baseline.get("p_fits"), f"{label}.baseline.p_fits")
+    baseline_decision = _string(baseline.get("decision"), f"{label}.baseline.decision")
+    if baseline_decision not in _VOI_DECISIONS or not 0.0 <= baseline_p <= 1.0 or baseline_loss < 0.0:
+        raise ValueError(f"{label}: baseline decision is outside the two-action model")
+    if cost < 0.0 or posterior_loss < 0.0 or not 0.0 <= error <= 1.0 or not 0.0 <= brier <= 0.25 + 1e-12:
+        raise ValueError(f"{label}: losses, costs and model expectations must be in range")
+    scale = max(baseline_loss, cost, 1.0)
+    if not _close(net, reduction - cost, scale) or not _close(total, posterior_loss + cost, scale) or not _close(reduction, baseline_loss - posterior_loss, scale):
+        raise ValueError(f"{label}: net value, total loss and loss reduction do not close")
+    branches: list[dict[str, object]] = []
+    mass = 0.0
+    for item in _array(document.get("outcomes"), f"{label}.outcomes"):
+        branch = _object(item, f"{label}.outcome")
+        probability = _number(branch.get("probability"), f"{label}.outcome.probability")
+        p_fits = _number(branch.get("p_fits"), f"{label}.outcome.p_fits")
+        expected_loss = _number(branch.get("expected_loss"), f"{label}.outcome.expected_loss")
+        decision = _string(branch.get("decision"), f"{label}.outcome.decision")
+        if not 0.0 < probability <= 1.0 or not 0.0 <= p_fits <= 1.0 or expected_loss < 0.0 or decision not in _VOI_DECISIONS:
+            raise ValueError(f"{label}: an outcome branch is impossible or outside the two-action model")
+        readings = []
+        for pair in _array(branch.get("readings"), f"{label}.outcome.readings"):
+            reading = _array(pair, f"{label}.outcome.reading")
+            if len(reading) != 2:
+                raise ValueError(f"{label}: a reading is an (id, value) pair")
+            readings.append((_string(reading[0], f"{label}.outcome.reading.id"), _number(reading[1], f"{label}.outcome.reading.value")))
+        if [reading[0] for reading in readings] != ids:
+            raise ValueError(f"{label}: outcome readings do not name the acquisition set")
+        mass += probability
+        branches.append({"readings": readings, "probability": probability, "p_fits": p_fits, "decision": decision, "expected_loss": expected_loss})
+    if not branches or not _close(mass, 1.0):
+        raise ValueError(f"{label}: outcome probabilities must sum to one")
+    if not _close(posterior_loss, sum(b["probability"] * b["expected_loss"] for b in branches), scale):  # type: ignore[operator]
+        raise ValueError(f"{label}: expected posterior loss does not follow from its branches")
+    return {
+        "ids": ids, "cost": cost, "posterior_loss": posterior_loss, "total": total, "reduction": reduction,
+        "net": net, "error": error, "brier": brier, "baseline": (baseline_decision, baseline_loss, baseline_p),
+        "branches": branches, "result_digest": _string(document.get("result_digest"), f"{label}.result_digest"),
+        "field_validation": _string(document.get("field_validation"), f"{label}.field_validation"),
+        "loss_unit": _string(document.get("loss_unit"), f"{label}.loss_unit"),
+    }
+
+
+def _voi_report(document: Mapping[str, object]) -> DecisionReport:
+    """Render-ready measurement recommendation: a ``gat.finite-decision-plan.v1``
+    alone, or the saved ``gat.synthetic-clearance-voi-experiment.v1`` that
+    carries its source, model and compared policies.
+
+    The card explains a choice rather than making one: what the baseline
+    decision and its expected loss are, which measurement is recommended,
+    what it would cost and save, every possible reading with the decision
+    that would follow, which measurements were excluded and why, and how the
+    one-step selector compares with the naive policies.  FIT / REJECT are the
+    model's two-action loss decisions, never the fit report's SATISFIED /
+    VIOLATED / UNRESOLVED.  Fail-closed: an unknown disposition, a claimed
+    authorization, a selection the ranking contradicts, arithmetic that does
+    not close, or an impossible outcome branch is refused, never drawn.
+    """
+    experiment = document.get("schema") == VOI_EXPERIMENT_SCHEMA
+    plan = _object(document.get("plan"), "plan") if experiment else document
+    if plan.get("schema") != VOI_PLAN_SCHEMA:
+        raise ValueError(f"unsupported plan schema {plan.get('schema')!r}")
+    disposition = _string(plan.get("disposition"), "plan.disposition")
+    if disposition not in _VOI_DISPOSITIONS:
+        raise ValueError(f"unsupported recommendation disposition {disposition!r}")
+    if plan.get("physical_action_authorized") is not False:
+        raise ValueError("a recommendation cannot claim physical action authorization")
+    method = _string(plan.get("method"), "plan.method")
+    if method != VOI_METHOD:
+        raise ValueError(f"unsupported value-of-information method {method!r}")
+    tolerance = _number(plan.get("selection_tolerance"), "plan.selection_tolerance")
+    baseline = _voi_result(_object(plan.get("baseline"), "plan.baseline"), "plan.baseline")
+    if baseline["ids"] or baseline["cost"] != 0.0:
+        raise ValueError("the plan baseline must be the empty acquisition set")
+    options = [_voi_result(_object(item, "plan.option"), f"plan.options[{index}]") for index, item in enumerate(_array(plan.get("options"), "plan.options"))]
+    if any(len(option["ids"]) != 1 for option in options):  # type: ignore[arg-type]
+        raise ValueError("one-step options measure exactly one candidate each")
+    nets = [float(option["net"]) for option in options]  # type: ignore[arg-type]
+    if any(later > earlier + 1e-12 for earlier, later in zip(nets, nets[1:])):
+        raise ValueError("options are not ranked by net value")
+    selected = plan.get("selected")
+    if selected is not None:
+        selected = _string(selected, "plan.selected")
+        if not options or options[0]["ids"] != [selected] or nets[0] <= tolerance:  # type: ignore[index]
+            raise ValueError("the selected measurement contradicts the ranking")
+    elif options and nets[0] > tolerance:
+        raise ValueError("a worthwhile measurement was ranked first but none was selected")
+    if (disposition == "RECOMMEND_MEASUREMENT") != (selected is not None):
+        raise ValueError("the disposition contradicts the selection")
+    excluded: list[tuple[str, str, str, str]] = []
+    for item in _array(plan.get("excluded"), "plan.excluded"):
+        entry = _object(item, "plan.excluded entry")
+        availability = _string(entry.get("availability"), "excluded.availability")
+        permission = _string(entry.get("permission"), "excluded.permission")
+        if availability not in _VOI_AVAILABILITY or permission not in _VOI_PERMISSION:
+            raise ValueError("excluded measurement carries an unknown availability or permission word")
+        reasons = []
+        if availability != "AVAILABLE":
+            reasons.append(f"availability {availability}")
+        if permission != "PERMITTED":
+            reasons.append(f"permission {permission}")
+        if not reasons:
+            raise ValueError("an available, permitted measurement cannot be excluded")
+        excluded.append((_string(entry.get("id"), "excluded.id"), _declared(entry.get("quantity")), availability, permission, "; ".join(reasons)))  # type: ignore[arg-type]
+    field_validation = _string(plan.get("field_validation"), "plan.field_validation")
+    loss_unit = str(baseline["loss_unit"])
+
+    # The model, when the saved experiment carries it: names quantities and units,
+    # declares its status and the losses the decisions rest on.
+    quantities: dict[str, tuple[str, str]] = {}
+    model_fields: list[tuple[str, str]] = []
+    model_status = "undeclared"
+    notes: list[str] = []
+    if experiment:
+        model = _object(document.get("model"), "model")
+        model_status = _string(model.get("model_status"), "model.model_status")
+        if model_status not in _VOI_MODEL_STATUS:
+            raise ValueError(f"unsupported model status {model_status!r}")
+        for item in _array(model.get("measurements"), "model.measurements"):
+            measurement = _object(item, "model.measurement")
+            quantities[_string(measurement.get("id"), "measurement.id")] = (
+                _string(measurement.get("quantity"), "measurement.quantity"),
+                _string(measurement.get("unit"), "measurement.unit"),
+            )
+        source = _object(document.get("source"), "source")
+        model_fields = [
+            ("status", model_status),
+            ("provenance", _string(model.get("provenance"), "model.provenance")),
+            ("decision rule", _declared(source.get("fit"))),
+            ("frame", _declared(source.get("frame"))),
+            ("length unit", _declared(source.get("length_unit"))),
+            ("loss unit", _string(model.get("loss_unit"), "model.loss_unit")),
+            ("false fit loss", format_number(_number(model.get("false_fit_loss"), "model.false_fit_loss"))),
+            ("false reject loss", format_number(_number(model.get("false_reject_loss"), "model.false_reject_loss"))),
+            ("hypotheses", str(len(_array(model.get("hypotheses"), "model.hypotheses")))),
+            ("measurements", str(len(quantities))),
+            ("joint outcomes", str(len(_array(model.get("outcomes"), "model.outcomes")))),
+            ("likelihood", _declared(source.get("likelihood"))),
+        ]
+        if model_status == "SYNTHETIC":
+            notes.append("SYNTHETIC MODEL: generated hypotheses, likelihoods, losses and costs, not survey evidence.")
+    notes.append(
+        "A recommendation is a proposed measurement. Physical action authorized: no. "
+        "It is not a fit verdict and it acquires nothing."
+    )
+    notes.append(
+        "FIT / REJECT are the two-action loss decisions of this model; they are not the "
+        "fit report's SATISFIED / VIOLATED / UNRESOLVED."
+    )
+    if experiment:
+        notes.append(f"evaluation scope: {_string(document.get('evaluation_scope'), 'evaluation_scope')}")
+
+    def quantity_text(measurement_id: str) -> str:
+        quantity = quantities.get(measurement_id)
+        return f"{quantity[0]} ({quantity[1]})" if quantity else "undeclared"
+
+    def readings_text(readings: object) -> str:
+        pairs = readings if isinstance(readings, list) else []
+        return "; ".join(f"{name} = {format_number(value)}" for name, value in pairs) or "none"
+
+    baseline_decision, baseline_loss, baseline_p = baseline["baseline"]  # type: ignore[misc]
+    chosen = options[0] if selected is not None else None
+    recommendation: list[tuple[str, str]] = [
+        ("disposition", disposition),
+        ("measure", selected if selected is not None else "none: no available, permitted measurement is worth its cost"),
+        ("quantity", quantity_text(selected) if selected is not None else "none"),
+        ("baseline decision", f"{baseline_decision}, expected loss {format_number(float(baseline_loss))}, P(fit) {format_probability(float(baseline_p))}"),  # type: ignore[arg-type]
+    ]
+    if chosen is not None:
+        recommendation.extend([
+            ("expected loss reduction", format_number(float(chosen["reduction"]))),  # type: ignore[arg-type]
+            ("acquisition cost", format_number(float(chosen["cost"]))),  # type: ignore[arg-type]
+            ("net value", format_number(float(chosen["net"]))),  # type: ignore[arg-type]
+            ("expected posterior loss", format_number(float(chosen["posterior_loss"]))),  # type: ignore[arg-type]
+            ("outcome branches", str(len(chosen["branches"]))),  # type: ignore[arg-type]
+        ])
+    recommendation.extend([
+        ("loss unit", loss_unit),
+        ("selection tolerance", format_number(tolerance)),
+        ("objective", method),
+        ("excluded", f"{len(excluded)} measurement(s), listed below" if excluded else "none"),
+    ])
+    blocks: list[Card | Table] = [Card("recommendation", tuple(recommendation), accent=disposition)]
+    blocks.append(
+        Table(
+            "candidates",
+            ("measurement", "quantity", "cost", "expected posterior loss", "loss reduction", "net value", "model decision error", "model Brier", "selected"),
+            tuple(
+                (
+                    option["ids"][0], quantity_text(option["ids"][0]), format_number(float(option["cost"])),  # type: ignore[index,arg-type]
+                    format_number(float(option["posterior_loss"])), format_number(float(option["reduction"])),  # type: ignore[arg-type]
+                    format_number(float(option["net"])), format_probability(float(option["error"])),  # type: ignore[arg-type]
+                    format_number(float(option["brier"])), _yes_no(option["ids"] == [selected]),  # type: ignore[arg-type]
+                )
+                for option in options
+            ) or ((f"none", "no available, permitted measurement", "", "", "", "", "", "", "no"),),
+            tuple("" for _ in options) or ("",),
+        )
+    )
+    if chosen is not None:
+        blocks.append(
+            Table(
+                f"outcome branches: {selected}",
+                ("reading", "probability", "P(fit) after", "decision", "expected loss"),
+                tuple(
+                    (readings_text(branch["readings"]), format_probability(float(branch["probability"])), format_probability(float(branch["p_fits"])), str(branch["decision"]), format_number(float(branch["expected_loss"])))  # type: ignore[arg-type]
+                    for branch in chosen["branches"]  # type: ignore[union-attr]
+                ),
+                tuple("" for _ in chosen["branches"]),  # type: ignore[arg-type]
+            )
+        )
+    if excluded:
+        blocks.append(
+            Table(
+                "excluded measurements",
+                ("measurement", "quantity", "availability", "permission", "reason"),
+                tuple(excluded),
+                tuple("" for _ in excluded),
+            )
+        )
+    if experiment:
+        comparisons = _object(document.get("comparisons"), "comparisons")
+        names = [name for name in _VOI_POLICY_ORDER if name in comparisons] + sorted(name for name in comparisons if name not in _VOI_POLICY_ORDER)
+        rows = []
+        for name in names:
+            result = _voi_result(_object(comparisons[name], f"comparisons.{name}"), f"comparisons.{name}")
+            rows.append((name, ", ".join(result["ids"]) or "none", format_number(float(result["cost"])), format_number(float(result["posterior_loss"])), format_number(float(result["total"])), format_number(float(result["net"])), format_probability(float(result["error"]))))  # type: ignore[arg-type]
+        blocks.append(
+            Table(
+                "policies compared",
+                ("policy", "measurements", "cost", "expected posterior loss", "total expected loss", "net value", "model decision error"),
+                tuple(rows),
+                tuple("" for _ in rows),
+                overflow="model expectations under the declared model; not held-out accuracy or calibration",
+            )
+        )
+        blocks.append(Card("model", tuple(model_fields)))
+    validation_fields = [
+        ("field validation", field_validation),
+        ("independent evaluation", _declared(document.get("independent_evaluation")) if experiment else "not declared in a bare plan"),
+        ("physical action authorized", "no"),
+    ]
+    blocks.append(Card("validation", tuple(validation_fields), accent=field_validation if field_validation in SIGNAL_CLASSES else ""))
+    identity_fields = [
+        ("schema", _string(document.get("schema"), "schema")),
+        ("method", method),
+        ("plan result", _string(plan.get("result_digest"), "plan.result_digest")),
+        ("model", _string(plan.get("model_digest"), "plan.model_digest")),
+        ("source", _string(plan.get("source_digest"), "plan.source_digest")),
+    ]
+    if experiment:
+        identity_fields.insert(2, ("artifact", _string(document.get("artifact_digest"), "artifact_digest")))
+    blocks.append(Card("identity", tuple(identity_fields)))
+    return DecisionReport(
+        operation="measurement_recommendation",
+        request_id="",
+        world_digest="",
+        disposition=disposition,
+        subject=f"measure {selected}" if selected is not None else "no worthwhile available measurement",
+        subline=f"one-step value of information; {method}; model {model_status}; field validation {field_validation}",
+        notes=tuple(notes),
+        blocks=tuple(blocks),
+        footers=(NON_AUTHORIZING_FOOTER, READ_ONLY_FOOTER),
     )
 
 def _fit_calibration_report(document: Mapping[str, object]) -> DecisionReport:

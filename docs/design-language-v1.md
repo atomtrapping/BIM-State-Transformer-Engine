@@ -207,6 +207,29 @@ assurance flags render `no` in plain sight and audit statuses like
   predictions display local tangent corrections and explicitly retain
   reference frames; they do not imply rebased canonical placements or field
   calibration.
+* `gat report clearance-voi.json [--html]` — a measurement recommendation
+  (`gat.finite-decision-plan.v1`, or the saved
+  `gat.synthetic-clearance-voi-experiment.v1` with its source, model and
+  compared policies). The headline is the plan's disposition:
+  `RECOMMEND_MEASUREMENT` is amber attention, a proposed measurement;
+  `NO_WORTHWHILE_AVAILABLE_MEASUREMENT` is undecided grey. The card explains
+  the choice without making it: the baseline decision and its expected loss,
+  the recommended measurement with its quantity, cost, expected loss
+  reduction, net value and expected posterior loss; the candidates ranked as
+  emitted; **every outcome branch** of the recommended measurement — reading,
+  probability, posterior P(fit), the decision that would follow and its
+  expected loss — never a most-likely outcome alone; excluded measurements
+  with their availability and permission words and the reason; the compared
+  policies (no measurement, cheapest first, largest uncertainty first,
+  one-step VOI, measure everything, and any bundle) with the note that these
+  are model expectations, not held-out accuracy; the model's status,
+  provenance, decision rule and losses; validation (`NOT_ESTABLISHED`,
+  `NOT_AVAILABLE`, physical action authorized `no`) and the digests. FIT /
+  REJECT are the model's two-action loss decisions and are never painted with
+  the decision palette; the notes say so, and say `SYNTHETIC MODEL` out loud.
+  Refused, never drawn: an unknown disposition, a claimed authorization, a
+  selection the ranking contradicts, arithmetic that does not close, an
+  available and permitted exclusion, and any impossible outcome branch.
 * `gat ledger ledger.json [--html] [-o PATH]` — the execution-ledger
   timeline described above. Exit codes: 0 rendered timeline, 2 invalid or
   tampered chain, 3 I/O error.

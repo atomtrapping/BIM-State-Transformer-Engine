@@ -281,22 +281,27 @@ shaped with the engine team, not a design of the model.
 When the engine can choose what to observe next, the surface's job is to
 explain the choice, not to make it: what remains uncertain, which
 measurement is recommended, why it matters to the decision, and what would
-change afterwards. The recommendation record the surfaces will read carries,
-per candidate action (measure the opening more accurately, verify the
-assembly's dimensions, improve the scan-to-building alignment, take another
-scan from a different viewpoint, or any other explicitly permitted action):
-the quantity or pose component it observes; the decision it bears on and the
-criterion that controls it today; the expected reduction in decision loss
-after the measurement, under the engine's stated model; the acquisition cost
-in the same declared unit; the net value (reduction minus cost) by which the
-candidates are ranked; the predicted outcome — the acceptance and the
-controlling probability the decision would most likely show afterwards, and
-the range they could take; the objective's name and version (an explicit
-value-of-information criterion, kept distinct from any expected-free-energy
-formula); and the model the prediction rests on, by digest. Where a shared
-variable — an alignment, a calibration — couples several candidates, the
-record names it, so the surface can show that one measurement informs
-several quantities.
+change afterwards. The record the surfaces read carries, per candidate
+action (measure the opening more accurately, verify the assembly's
+dimensions, improve the scan-to-building alignment, take another scan from a
+different viewpoint, or any other explicitly permitted action): the quantity
+it observes; the decision it bears on and the criterion that controls it
+today; the expected reduction in decision loss after the measurement, under
+the engine's stated model; the acquisition cost in the same declared unit;
+the net value (reduction minus cost) by which the candidates are ranked;
+**the possible outcome branches — every reading the model allows, each with
+its probability, the posterior P(fit) and the decision that would follow**;
+the objective's name and version (an explicit value-of-information
+criterion, kept distinct from any expected-free-energy formula); and the
+model the prediction rests on, by digest. A most-likely outcome alone can
+conceal an important low-probability branch, so branches are shown in full
+and a single "predicted outcome" is never substituted for them; where a
+record summarises branches as a range, it must say what the range is (a
+minimum and maximum over enumerated branches, a credible interval at a
+stated level, a numerical error estimate with a tail bound) and the surface
+repeats that word. Where a shared variable — an alignment, a calibration —
+couples several candidates, the record names it, so the surface can show
+that one measurement informs several quantities.
 
 The card renders the ranking as the engine emitted it, names the objective
 verbatim, and keeps apart two things that are easy to conflate: the
@@ -305,44 +310,50 @@ improves the decision — a dimension can be very uncertain and barely matter
 to whether the assembly fits. A recommendation requests nothing by itself:
 it names the next useful measurement in the words of the *evidence still
 missing* card, and the acquisition remains a permitted action someone takes.
-Nothing renders until the engine emits such a record. The first benchmark is
-one clearance decision with several available measurements; the surface will
-show the recommended selector beside cheapest-first,
-largest-uncertainty-first and measure-everything, with decision error,
-measurement cost and calibration against independent observations, so the
-comparison itself is inspectable.
+Its FIT / REJECT are the model's two-action loss decisions, never the fit
+report's SATISFIED / VIOLATED / UNRESOLVED.
 
-## Rules that hold in every mode
+#### Field agreement with the producers
 
-1. **Projection never mutates its source.** The workbench renders and
-   re-checks; it never writes. Fail-closed rules from the report layer
-   apply unchanged: a decision from another world is refused, a tampered
-   ledger is refused before drawing, an audit whose readiness contradicts
-   its stages is refused.
-2. **Identity survives representation.** The same `EntityId` and the same
-   world digest name the same thing in every mode and across the frame
-   boundary.
-3. **Visual adjacency is never evidence.** The GRAPH layout is a reading
-   order by IFC class rank and says so on the panel; distances on the
-   canvas carry no information. Nothing on any panel proposes anything to
-   the corpus.
+Three producers exist or are drafted: the finite decision plan and saved
+experiment (`gat.finite-decision-plan.v1`, `gat.synthetic-clearance-voi-experiment.v1`,
+GAT #31, rendered by `gat report`), the continuous width-clearance cycle
+(`examples/continuous-clearance/cycle.json`, GAT #32, stacked on #31), and
+an uncommitted TypeScript draft in NotationsOS (`src/compute/clearance-voi.ts`,
+reported to carry loss reduction, cost, net value, hypothetical outcomes with
+posterior decisions, shared dependencies and the four comparator policies).
+The agreement below is written against the two committed records; the draft
+is to be confirmed against the same rows when it is committed, not re-derived.
 
-## What the frontend contributes to industrial gates
+| Consumer field | Finite plan / experiment (#31) | Continuous cycle (#32) | Standing |
+|---|---|---|---|
+| quantity observed, unit | `model.measurements[].quantity`, `unit` (the bare plan carries ids only, so the card reads `undeclared`) | affine measurement rows over raw metre variables | exists |
+| decision it bears on, controlling criterion | `source.fit` (a binary fit rule); no per-margin controlling criterion in a two-action model | the width gate `(opening − assembly)/2 ≥ clearance`, `WIDTH_GATE_ONLY` | exists as stated; the fit report's controlling clearance is a different record and is not conflated |
+| expected reduction in decision loss | `expected_loss_reduction` | candidate expected loss reduction | exists |
+| acquisition cost, unit | `acquisition_cost`, `loss_unit` | cost in the declared decision-loss unit | exists |
+| net value and ranking | `net_value`, `plan.options` order, `selected`, `selection_tolerance` | candidate ranking | exists; the card refuses a selection the ranking contradicts |
+| outcome branches with probabilities and decisions | `outcomes[]` (`readings`, `probability`, `posterior`, `p_fits`, `decision`, `expected_loss`), enumerated exhaustively | three *illustrative* readings that are not the integration; a numerical error estimate and Gaussian tail bound instead | exists for #31; **adapter** for #32: the card must label illustrative readings as such and show the error estimate as the range word, never as branches |
+| range semantics | none needed: branches are exhaustive | numerical error estimate plus tail bound | exists, stated |
+| objective name and version | `method` = `gat.finite-decision-voi.v1` | method id and version | exists |
+| model identity by digest | `model_digest`, `source_digest`, `result_digest`, `artifact_digest` | plan binds world, belief, frame representation and epoch; snapshot and ledger digests | exists |
+| shared variables coupling candidates | encoded in `hypotheses[].values` (the shared instrument offset) and in a measurement's `quantity` text; no explicit coupling field | shared calibration as a raw latent variable in the affine row with joint covariance | **adapter**: the card can show the coupling only by name today; an explicit "shares" field would let it draw which candidates one measurement informs |
+| permitted action | `availability`, `permission` declarations, `excluded[]`, `physical_action_authorized = false` | availability and permission declarations | exists; the card refuses `true` and refuses an available, permitted exclusion |
+| limitations and validation | `model_status`, `provenance`, `field_validation`, `independent_evaluation`, `evaluation_scope` | `SYNTHETIC`, `NO_MEASUREMENTS`, scope words | exists, rendered verbatim |
+| comparators | `comparisons` (no measurement, cheapest first, largest uncertainty first, one-step VOI, measure everything, opening and calibration) | none in the cycle record | exists for #31 |
+| what would change afterwards | per branch: `decision`, `p_fits`, `expected_loss` | the realised update (`update`, `posterior_plan`) after one reading | exists |
+| field-validated accuracy | — | — | **unavailable** by design until independent trials exist; the card shows `NOT_ESTABLISHED` / `NOT_AVAILABLE` and never a model expectation as accuracy |
+| a recommendation for a real IFC pair | — | — | **unavailable**: both records are synthetic; the FIT mode waits for the benchmark |
 
-Of the five readiness gates — representation fidelity, computational
-validity, uncertainty calibration, operational reliability, workflow
-validation — the frontend can only help with the first and the last, and
-only partly:
-
-* *Representation fidelity*: the identity contract above is tested
-  (`tests/test_workbench.py::StatePayloadTests::test_identity_survives_representation`),
-  and every `ProjectionSpec` declares its loss, frame and time so that a
-  reader can tell whether two representations are even comparable.
-* *Workflow validation*: the instrument lets a practitioner see the
-  decision at the spot it was decided (STRUCTURE), the evidence it rests on
-  and the evidence still requested (EVIDENCE), the history (TIME) and the
-  corpus limits (COMPLEXITY) without leaving one file. Whether people use
-  it correctly is a field question this document cannot answer.
+The card is tested on four cases and refuses a fifth: a positive
+recommendation (the saved experiment), no worthwhile measurement (every
+candidate priced above its benefit; `NO_WORTHWHILE_AVAILABLE_MEASUREMENT`
+is undecided grey, nothing is selected, the candidates still show their
+negative net values), unresolved assumptions (a candidate whose availability
+or permission is `UNKNOWN` is excluded with its reason and never ranked),
+and impossible outcomes (branch probabilities that do not sum to one, a
+zero-probability branch, a posterior outside [0, 1], arithmetic that does
+not close, a claimed authorization, a selection the ranking contradicts —
+each refused, never drawn).
 
 ## Reserved: ACCESS, a configuration representation
 
