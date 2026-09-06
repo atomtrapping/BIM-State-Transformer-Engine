@@ -23,6 +23,17 @@ jobs:
       - name: Install GAT
         run: python -m pip install -e .
 
+      - name: Qualify exact historical replay in this numerical environment
+        run: python validation/qualify_execution.py --output ci-out/execution-qualification.json
+
+      - name: Preserve execution qualification diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: execution-qualification-python-${{ matrix.python-version }}
+          path: ci-out/execution-qualification.json
+          if-no-files-found: warn
+
       - name: Run test suite
         run: python -m unittest discover -v
 
