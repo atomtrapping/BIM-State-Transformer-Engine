@@ -200,6 +200,26 @@ class DecisionOverlayTests(unittest.TestCase):
         self.assertEqual(overlay["proposals"][0]["extents"], [3.0, 0.4, 0.4])
         self.assertIn("This report does not authorize any action.", overlay["footers"])
 
+    def test_not_cleared_is_amber_not_red(self) -> None:
+        import copy
+
+        from gat.geometry.viewer import decision_overlay, render_viewer_html
+
+        overlay = decision_overlay(self.world, self.response, self.request)
+        self.assertEqual(overlay["subjects"], ["Wall-Party"])  # P = 1.0 >= 0.95
+        self.assertEqual(overlay["uncertain"], [])
+        self.assertEqual(overlay["uncertain_color"], "#f28c0d")
+        response = copy.deepcopy(self.response)
+        for risk in response["result"]["checks"][0]["details"]["risks"]:
+            if risk["element"] == "Door-1":
+                risk["p_violates"] = 0.5  # not cleared, not confidently violated
+        overlay = decision_overlay(self.world, response, self.request)
+        self.assertEqual(overlay["subjects"], ["Wall-Party"])
+        self.assertEqual(overlay["uncertain"], ["Door-1"])
+        html = render_viewer_html(viewer_payload(self.world, n=0, decision=overlay))
+        self.assertIn("DECISION_UNCERTAIN", html)
+        self.assertIn('"uncertain":["Door-1"]', html)
+
     def test_overlay_without_request_has_no_proposals(self) -> None:
         from gat.geometry.viewer import decision_overlay
 

@@ -281,6 +281,61 @@ class HtmlRenderingTests(unittest.TestCase):
         self.assertIn("&lt;img", html)
 
 
+class ElementRiskAccentTests(unittest.TestCase):
+    """Uncertain is never red: two tiers on the acceptance element risks."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        from gat.headless import handle_request
+
+        cls.response = handle_request(
+            {
+                "format": "gat-headless-request-v1",
+                "request_id": "accent-rule",
+                "operation": "acceptance",
+                "state": {"kind": "ifc", "path": MODEL},
+                "payload": {
+                    "case_id": "route-1",
+                    "workflow": "AS_BUILT_CLEARANCE",
+                    "subject": "crossing duct",
+                    "checks": [
+                        {
+                            "kind": "clearance",
+                            "check_id": "route-clearance",
+                            "proposal": {"origin": [4.0, 1.8, 2.6], "angle": 0.0,
+                                         "extents": [3.0, 0.4, 0.4]},
+                            "required_clearance": 0.05,
+                            "confidence": 0.95,
+                            "position_sigma": 0.02,
+                            "label": "crossing duct",
+                        }
+                    ],
+                },
+            }
+        )
+
+    def accents(self, response) -> dict:
+        decoded = report.decode_response(response)
+        table = next(block for block in decoded.blocks if block.title == "element risks")
+        return {row[0]: accent for row, accent in zip(table.rows, table.accents)}
+
+    def test_confidently_violated_is_red_and_cleared_is_plain(self) -> None:
+        accents = self.accents(self.response)
+        self.assertEqual(accents["Wall-Party"], "VIOLATED")
+        self.assertEqual(accents["Door-1"], "")
+
+    def test_between_the_thresholds_is_unresolved(self) -> None:
+        response = copy.deepcopy(self.response)
+        for risk in response["result"]["checks"][0]["details"]["risks"]:
+            if risk["element"] == "Door-1":
+                risk["p_violates"] = 0.5
+        accents = self.accents(response)
+        self.assertEqual(accents["Door-1"], "UNRESOLVED")
+        self.assertEqual(accents["Wall-Party"], "VIOLATED")
+        html = report.render_html(report.decode_response(response))
+        self.assertIn('<tr class="attention">', html)
+
+
 class ErrorRenderingTests(unittest.TestCase):
     def test_error_response_renders_grey_and_undecided(self) -> None:
         decoded = report.decode_response(

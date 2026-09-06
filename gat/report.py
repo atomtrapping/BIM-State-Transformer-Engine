@@ -442,10 +442,11 @@ def _acceptance_report(
             )
         )
         accents.append(verdict)
-        # Per-element clearance risks, when the check carries them.  An
-        # element the case could not clear at its confidence takes the
-        # check's own verdict as its accent — the same rule the viewer uses
-        # to paint decision subjects.
+        # Per-element clearance risks, when the check carries them.  Two
+        # tiers, and uncertain is never red: VIOLATED only when the element
+        # is confidently violated (P >= confidence), UNRESOLVED when the case
+        # merely could not clear it (between the thresholds), nothing below
+        # — the same rule the viewer uses to paint decision subjects.
         details = check.get("details")
         risks = details.get("risks") if isinstance(details, Mapping) else None
         for risk in _array(risks, "check.details.risks") if risks is not None else ():
@@ -461,7 +462,11 @@ def _acceptance_report(
                     format_probability(p_violates),
                 )
             )
-            risk_accents.append(verdict if p_violates > 1.0 - confidence else "")
+            risk_accents.append(
+                "VIOLATED" if p_violates >= confidence
+                else "UNRESOLVED" if p_violates > 1.0 - confidence
+                else ""
+            )
 
     request_rows: list[tuple[str, ...]] = []
     for item in _array(result.get("evidence_requests"), "evidence_requests"):
@@ -1004,7 +1009,8 @@ def _fit_report(document: Mapping[str, object]) -> DecisionReport:
             format_probability(p_violates),
         )
         risk_rows.append(row)
-        risk_accents.append("VIOLATED" if p_violates > 1.0 - confidence else "")
+        risk_accents.append("VIOLATED" if p_violates >= confidence else
+                            "UNRESOLVED" if p_violates > 1.0 - confidence else "")
         if mean < tightest_mean:
             tightest, tightest_mean = row, mean
     # Long tables truncate at 20 rows with an explicit note, like every other
