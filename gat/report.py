@@ -35,6 +35,19 @@ RESPONSE_FORMAT = "gat-headless-response-v1"
 AUDIT_FORMAT = "gat-ifc-audit-v1"
 FIT_FORMAT = "gat-opening-fit-v1"
 FIT_CALIBRATION_FORMAT = "gat-fit-held-out-v1"
+#: The evaluator's residual record, as ``evaluate_held_out`` emits it; a
+#: residual carrying all of these renders as a predicted-vs-measured
+#: comparison, anything else renders as emitted.
+_RESIDUAL_KEYS = (
+    "risk_id",
+    "sample_id",
+    "source_id",
+    "assessment_digest",
+    "value_m",
+    "residual_m",
+    "predictive_observation_sigma_m",
+    "standardised_residual",
+)
 
 #: Signal classes — what a rendered term asks of the reader.
 PROCEED = "proceed"
@@ -125,6 +138,32 @@ def format_moment(mean_n_m: float, sigma_n_m: float | None = None) -> str:
 
 def format_number(value: float) -> str:
     return f"{value:.6g}"
+
+
+def _margin_accent(p_violates: float, confidence: float) -> str:
+    """Two tiers, and uncertain is never red: ``VIOLATED`` only when the
+    margin is confidently violated (``P(violates) >= confidence``),
+    ``UNRESOLVED`` when it merely cannot be cleared at that confidence
+    (between ``1 - confidence`` and ``confidence``), nothing below."""
+    if p_violates >= confidence:
+        return "VIOLATED"
+    if p_violates > 1.0 - confidence:
+        return "UNRESOLVED"
+    return ""
+
+
+def _declared(value: object) -> str:
+    """A record field shown verbatim; an absent or null value says so instead
+    of rendering as an empty cell or a Python ``None``."""
+    if value is None:
+        return "undeclared"
+    if isinstance(value, bool):
+        return _yes_no(value)
+    if isinstance(value, (int, float)):
+        return format_number(float(value))
+    if isinstance(value, list):
+        return ", ".join(_declared(item) for item in value) if value else "none"
+    return str(value)
 
 
 def _yes_no(value: bool) -> str:
@@ -462,11 +501,7 @@ def _acceptance_report(
                     format_probability(p_violates),
                 )
             )
-            risk_accents.append(
-                "VIOLATED" if p_violates >= confidence
-                else "UNRESOLVED" if p_violates > 1.0 - confidence
-                else ""
-            )
+            risk_accents.append(_margin_accent(p_violates, confidence))
 
     request_rows: list[tuple[str, ...]] = []
     for item in _array(result.get("evidence_requests"), "evidence_requests"):
@@ -994,9 +1029,10 @@ def _fit_report(document: Mapping[str, object]) -> DecisionReport:
     ):
         raise ValueError("margin covariance does not match the margins")
     risk_rows: list[tuple[str, ...]] = []
-    risk_accents: list[str] = []
-    tightest: tuple[str, ...] | None = None
-    tightest_mean = float("inf")
+    all_accents: list[str] = []
+    risk_classes: list[str] = []
+    means: list[float] = []
+    probabilities: list[float] = []
     for item in risks:
         risk = _object(item, "risk")
         p_violates = _number(risk.get("p_violates"), "risk.p_violates")
@@ -1004,31 +1040,40 @@ def _fit_report(document: Mapping[str, object]) -> DecisionReport:
         sigma = _number(risk.get("sigma_m"), "risk.sigma_m")
         if not 0.0 <= p_violates <= 1.0 or sigma < 0.0:
             raise ValueError("margin risk values are out of range")
-        row = (
-            _string(risk.get("id"), "risk.id"),
-            _string(risk.get("frame_id"), "risk.frame_id"),
-            f"{mean * 1000:.1f} +- {sigma * 1000:.1f} mm",
-            format_probability(p_violates),
+        risk_rows.append(
+            (
+                _string(risk.get("id"), "risk.id"),
+                _string(risk.get("frame_id"), "risk.frame_id"),
+                f"{mean * 1000:.1f} +- {sigma * 1000:.1f} mm",
+                format_probability(p_violates),
+            )
         )
-        risk_rows.append(row)
-        risk_accents.append("VIOLATED" if p_violates >= confidence else
-                            "UNRESOLVED" if p_violates > 1.0 - confidence else "")
-        if mean < tightest_mean:
-            tightest, tightest_mean = row, mean
+        risk_classes.append(_declared(risk.get("quantity_class")))
+        all_accents.append(_margin_accent(p_violates, confidence))
+        means.append(mean)
+        probabilities.append(p_violates)
+    # The controlling clearance is the margin the prediction turns on: the
+    # highest violation probability, ties broken by the smallest margin.  The
+    # tightest margin (smallest mean) is named beside it when it differs.
+    controlling = max(
+        range(len(risks)), key=lambda index: (probabilities[index], -means[index])
+    )
+    tightest = min(range(len(risks)), key=lambda index: means[index])
     # Long tables truncate at 20 rows with an explicit note, like every other
-    # table; the tightest margin is named on the prediction card so the
-    # truncation can never hide it.
+    # table; the controlling and tightest margins have their own card, so the
+    # truncation can never hide them.
     risk_overflow = f"and {len(risk_rows) - 20} more margins" if len(risk_rows) > 20 else ""
-    risk_rows, risk_accents = risk_rows[:20], risk_accents[:20]
+    table_rows, table_accents = tuple(risk_rows[:20]), tuple(all_accents[:20])
 
     pose = _object(document.get("pose"), "pose")
     order = [_string(item, "pose.order") for item in _array(pose.get("order"), "pose.order")]
     pose_cov = _array(pose.get("covariance"), "pose.covariance")
     if len(pose_cov) != 6 * len(order):
         raise ValueError("pose covariance does not match the pose order")
+    assumption_id = _string(pose.get("assumption_id"), "pose.assumption_id")
     pose_fields: list[tuple[str, str]] = [
         ("convention", _string(pose.get("convention"), "pose.convention")),
-        ("assumption", _string(pose.get("assumption_id"), "pose.assumption_id")),
+        ("assumption", assumption_id),
     ]
     for index, body in enumerate(order):
         base = 6 * index
@@ -1078,22 +1123,59 @@ def _fit_report(document: Mapping[str, object]) -> DecisionReport:
             pose_fields.append((f"{body} local position correction", " / ".join(f"{v * 1000:.2f}" for v in tangent[start:start+3]) + " mm"))
             pose_fields.append((f"{body} local rotation correction", " / ".join(f"{v * 1000:.2f}" for v in tangent[start+3:start+6]) + " mrad"))
 
+    # Frames: each declares its parent, unit, origin and whether it is
+    # rotated.  The bound frames must be declared, and their chains to the
+    # root must close; a chain that is broken or cycles is refused, because
+    # a placement whose frame cannot be resolved cannot be drawn honestly.
     frame_rows: list[tuple[str, ...]] = []
+    parents: dict[str, str | None] = {}
     for item in _array(document.get("frames"), "frames"):
         frame = _object(item, "frame")
+        frame_id = _string(frame.get("id"), "frame.id")
+        if frame_id in parents:
+            raise ValueError(f"frame {frame_id!r} is declared twice")
+        parent = frame.get("parent_id")
+        parents[frame_id] = None if parent is None else _string(parent, "frame.parent_id")
         translation = [
             _number(value, "frame.translation_m")
             for value in _array(frame.get("translation_m"), "frame.translation_m")
         ]
-        parent = frame.get("parent_id")
+        rotation = [
+            [_number(value, "frame.rotation") for value in _array(row, "frame.rotation row")]
+            for row in _array(frame.get("rotation"), "frame.rotation")
+        ]
+        if len(rotation) != 3 or any(len(row) != 3 for row in rotation):
+            raise ValueError("frame rotation must be a 3x3 matrix")
+        identity = all(
+            abs(value - (1.0 if column == line else 0.0)) <= 1e-12
+            for line, row in enumerate(rotation)
+            for column, value in enumerate(row)
+        )
         frame_rows.append(
             (
-                _string(frame.get("id"), "frame.id"),
-                "root" if parent is None else _string(parent, "frame.parent_id"),
+                frame_id,
+                "root" if parents[frame_id] is None else str(parents[frame_id]),
                 _string(frame.get("unit"), "frame.unit"),
                 ", ".join(format_number(value) for value in translation) + " m",
+                "identity" if identity else "rotated",
             )
         )
+
+    def chain(frame_id: str) -> str:
+        path: list[str] = []
+        current: str | None = frame_id
+        while current is not None:
+            if current not in parents:
+                raise ValueError(f"frame {current!r} is bound but not declared")
+            if current in path:
+                raise ValueError(f"frame chain cycles at {current!r}")
+            path.append(current)
+            current = parents[current]
+        return " -> ".join(path)
+
+    opening_frame = _string(binding.get("opening_frame"), "binding.opening_frame")
+    assembly_frame = _string(binding.get("assembly_frame"), "binding.assembly_frame")
+    opening_chain, assembly_chain = chain(opening_frame), chain(assembly_frame)
 
     inputs = document.get("inputs")
     notes: list[str] = []
@@ -1105,24 +1187,81 @@ def _fit_report(document: Mapping[str, object]) -> DecisionReport:
             notes.append(
                 "SYNTHETIC INPUTS: invented dimensions and pose assumptions, not a building."
             )
+        inputs_text = inputs
     else:
         notes.append(
             "The record does not declare whether its inputs are measured or synthetic."
         )
+        inputs_text = "undeclared"
     notes.extend(
         _string(item, "limitation") for item in _array(document.get("limitations"), "limitations")
     )
+    convention_fields: list[tuple[str, str]] = []
     if "coordinate_convention" in document:
         convention = _object(document["coordinate_convention"], "coordinate_convention")
-        notes.append("coordinate convention: " + "; ".join(f"{key}={value if value is not None else 'undeclared'}"
-                                                           for key, value in convention.items()))
+        convention_fields = [(key, _declared(value)) for key, value in convention.items()]
+    inference_fields: list[tuple[str, str]] = []
+    factor_count = 0
     if "inference" in document:
         inference = _object(document["inference"], "inference")
         if inference.get("contract") != "gat-opening-factor-bridge-v1" or inference.get("canonical_state_committed") is not False:
             raise ValueError("unsupported or committed opening factor inference")
         notes.append("FACTOR INFERENCE: fixed first-order linearization at the recorded reference frames. Pose corrections are local tangent means; frames are not rebased. In-sample residuals are not calibration.")
-        notes.append("factor graph: " + _string(inference.get("graph_digest"), "inference.graph_digest"))
+        graph = inference.get("graph")
+        factors = (
+            [_object(item, "factor") for item in _array(_object(graph, "inference.graph").get("factors"), "inference.graph.factors")]
+            if graph is not None
+            else []
+        )
+        factor_count = len(factors)
+        factor_text = "; ".join(
+            f"{_string(factor.get('id'), 'factor.id')} ({_declared(factor.get('kind'))}, source {_declared(factor.get('source_id'))})"
+            for factor in factors
+        )
+        inference_fields = [
+            ("contract", "gat-opening-factor-bridge-v1"),
+            ("geometry evaluation", _declared(inference.get("geometry_evaluation"))),
+            ("factors", f"{factor_count}: {factor_text}" if factors else "none"),
+            ("reference assessment", _declared(inference.get("reference_assessment_digest"))),
+            ("factor graph", _string(inference.get("graph_digest"), "inference.graph_digest")),
+            ("canonical state committed", "no"),
+        ]
+    # The method that produced the assessment is the record's to declare;
+    # the reader's own version would be a different program's.  Until the
+    # contract carries one, the card says so rather than guessing.
+    method = document.get("method")
+    method_fields = (
+        _scalar_fields(_object(method, "method"), prefix="method ")
+        if method is not None
+        else [("method version", "not declared in the record")]
+    )
 
+    # What the margins rest on, so a reader can see which quantities no
+    # independent measurement has validated.  Every entry is read from the
+    # record: the bound dimensions, the pose bodies and their assumption, and
+    # the record's own statement that it carries no evidence receipt.
+    evidence_fields: list[tuple[str, str]] = [
+        ("field acceptance", acceptance),
+        ("calibration", calibration),
+        (
+            "receipts in this record",
+            "none; gat-opening-fit-v1 carries no evidence receipt, and held-out "
+            "measurements are evaluated in a separate gat-fit-held-out-v1 document",
+        ),
+        ("margins rest on", f"{len(dimensions)} dimensions and {len(order)} poses"),
+        ("dimensions", "; ".join(dimensions)),
+        ("poses", f"{', '.join(order)}; assumption {assumption_id}"),
+    ]
+    if inference_fields:
+        evidence_fields.append(
+            (
+                "in-sample factors",
+                f"{factor_count}; in-sample residuals are not calibration",
+            )
+        )
+    evidence_title = "evidence still missing" if acceptance == "REQUEST_EVIDENCE" else "evidence"
+
+    controlling_row, tightest_row = risk_rows[controlling], risk_rows[tightest]
     blocks: list[Card | Table] = [
         Card(
             "prediction",
@@ -1135,14 +1274,27 @@ def _fit_report(document: Mapping[str, object]) -> DecisionReport:
                 ),
                 ("required clearance", f"{clearance * 1000:.1f} mm per edge"),
                 ("confidence", f"{confidence:.0%}"),
-                (
-                    "tightest margin",
-                    f"{tightest[0]} {tightest[2]} (P(violates) {tightest[3]})"
-                    if tightest is not None
-                    else "none",
-                ),
             ),
             accent=prediction,
+        ),
+        Card(
+            "controlling clearance",
+            (
+                ("margin", controlling_row[0]),
+                ("quantity class", risk_classes[controlling]),
+                ("frame", controlling_row[1]),
+                ("mean +- sigma", controlling_row[2]),
+                ("P(violates)", controlling_row[3]),
+                ("required clearance", f"{clearance * 1000:.1f} mm per edge"),
+                ("rule", "highest P(violates), then smallest margin"),
+                (
+                    "tightest margin",
+                    "the same"
+                    if tightest == controlling
+                    else f"{tightest_row[0]} {tightest_row[2]} (P(violates) {tightest_row[3]})",
+                ),
+            ),
+            accent=all_accents[controlling],
         ),
         Card(
             "calibration",
@@ -1152,16 +1304,16 @@ def _fit_report(document: Mapping[str, object]) -> DecisionReport:
             ),
             accent=calibration,
         ),
+        Card(evidence_title, tuple(evidence_fields), accent=calibration),
         Card(
             "binding",
             (
                 ("opening", opening_entity),
                 ("assembly", assembly_entity),
-                ("opening frame", _string(binding.get("opening_frame"), "binding.opening_frame")),
-                (
-                    "assembly frame",
-                    _string(binding.get("assembly_frame"), "binding.assembly_frame"),
-                ),
+                ("opening frame", opening_frame),
+                ("assembly frame", assembly_frame),
+                ("opening frame chain", opening_chain),
+                ("assembly frame chain", assembly_chain),
                 *(
                     (name.rsplit(".", 1)[-1] + f" ({entity.split(':', 1)[0]})", f"{value:.4g} m")
                     for name, entity, value in zip(dimensions, entities, dimensions_m)
@@ -1169,22 +1321,26 @@ def _fit_report(document: Mapping[str, object]) -> DecisionReport:
             ),
         ),
         Card("pose assumptions", tuple(pose_fields)),
+        *([Card("coordinate convention", tuple(convention_fields))] if convention_fields else []),
+        *([Card("factor inference", tuple(inference_fields))] if inference_fields else []),
         Table(
             "frames",
-            ("frame", "parent", "unit", "origin in parent"),
+            ("frame", "parent", "unit", "origin in parent", "rotation"),
             tuple(frame_rows),
             tuple("" for _ in frame_rows),
         ),
         Table(
             "margins",
             ("risk", "frame", "margin", "P(violates)"),
-            tuple(risk_rows),
-            tuple(risk_accents),
+            table_rows,
+            table_accents,
             overflow=risk_overflow,
         ),
         Card(
-            "identity",
+            "inputs and identity",
             (
+                ("inputs", inputs_text),
+                *method_fields,
                 ("contract", FIT_FORMAT),
                 ("world", world_digest),
                 ("frame representation", frame_digest),
@@ -1210,7 +1366,6 @@ def _fit_report(document: Mapping[str, object]) -> DecisionReport:
         blocks=tuple(blocks),
         footers=footers,
     )
-
 
 def _fit_calibration_report(document: Mapping[str, object]) -> DecisionReport:
     """Render-ready held-out evaluation (``gat-fit-held-out-v1``).
@@ -1241,28 +1396,77 @@ def _fit_calibration_report(document: Mapping[str, object]) -> DecisionReport:
             coverage_rows.append((f"{nominal:.1%}", f"{observed:.1%}"))
         if coverage_rows:
             blocks.append(Table(f"group {index + 1} coverage", ("nominal", "observed"), tuple(coverage_rows), tuple("" for _ in coverage_rows)))
+    assessments: list[str] = []
     if residuals:
         records = [_object(item, "residual") for item in residuals]
-        columns = tuple(sorted({key for record in records for key in record}))
-        rows = tuple(
-            tuple(
-                _yes_no(value) if isinstance(value, bool)
-                else format_number(float(value)) if isinstance(value, (int, float))
-                else str(value)
-                for value in (record.get(column, "") for column in columns)
+        if all(all(key in record for key in _RESIDUAL_KEYS) for record in records):
+            # The evaluator's own residual record, read as a comparison: the
+            # measured value beside the value the prediction expected for it
+            # (measured minus residual), the predictive sigma the residual was
+            # standardised by, and the standardised residual itself.  The
+            # assessment each measurement was checked against is named once,
+            # on the evaluation card, not repeated per row.
+            rows = []
+            for record in records:
+                measured = _number(record["value_m"], "residual.value_m")
+                residual = _number(record["residual_m"], "residual.residual_m")
+                sigma = _number(
+                    record["predictive_observation_sigma_m"],
+                    "residual.predictive_observation_sigma_m",
+                )
+                standardised = _number(record["standardised_residual"], "residual.standardised_residual")
+                if sigma <= 0.0:
+                    raise ValueError("predictive observation sigma must be positive")
+                digest = _string(record["assessment_digest"], "residual.assessment_digest")
+                if digest not in assessments:
+                    assessments.append(digest)
+                rows.append(
+                    (
+                        _string(record["risk_id"], "residual.risk_id"),
+                        _string(record["sample_id"], "residual.sample_id"),
+                        _string(record["source_id"], "residual.source_id"),
+                        f"{(measured - residual) * 1000:.1f} mm",
+                        f"{measured * 1000:.1f} mm",
+                        f"{sigma * 1000:.2f} mm",
+                        format_number(standardised),
+                    )
+                )
+            blocks.append(
+                Table(
+                    "residuals: predicted vs measured",
+                    ("risk_id", "sample_id", "source_id", "predicted", "measured", "predictive sigma", "standardised_residual"),
+                    tuple(rows),
+                    tuple("" for _ in rows),
+                )
             )
-            for record in records
-        )
-        blocks.append(Table("residuals", columns, rows, tuple("" for _ in rows)))
+        else:
+            # A residual record the reader does not recognise renders as
+            # emitted, every key a column, rather than being guessed at.
+            columns = tuple(sorted({key for record in records for key in record}))
+            rows = tuple(
+                tuple(
+                    _yes_no(value) if isinstance(value, bool)
+                    else format_number(float(value)) if isinstance(value, (int, float))
+                    else str(value)
+                    for value in (record.get(column, "") for column in columns)
+                )
+                for record in records
+            )
+            blocks.append(Table("residuals", columns, rows, tuple("" for _ in rows)))
+    evaluation_fields: list[tuple[str, str]] = [
+        ("status", status),
+        ("independence", _string(document.get("independence"), "independence")),
+        ("groups", str(len(groups))),
+        ("residuals", str(len(residuals))),
+    ]
+    if len(assessments) == 1:
+        evaluation_fields.append(("assessment", assessments[0]))
+    elif assessments:
+        evaluation_fields.append(("assessments", f"{len(assessments)} distinct"))
     blocks.append(
         Card(
             "evaluation",
-            (
-                ("status", status),
-                ("independence", _string(document.get("independence"), "independence")),
-                ("groups", str(len(groups))),
-                ("residuals", str(len(residuals))),
-            ),
+            tuple(evaluation_fields),
             accent="UNVALIDATED" if status == "DESCRIPTIVE_EVALUATION" else status,
         )
     )

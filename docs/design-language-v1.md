@@ -163,26 +163,49 @@ assurance flags render `no` in plain sight and audit statuses like
   self-contained, script-free HTML page for sharing and archiving, e.g.
   `gat-headless request.json | gat report - --html -o decision.html`.
 * `gat report prediction.json [--html]` — an opening-fit prediction
-  (`gat-opening-fit-v1`). The headline is the *field acceptance*
-  (`REQUEST_EVIDENCE` until measurements exist), never the model's
-  prediction, which appears as a badged card beside the calibration
-  status (`UNVALIDATED`). Pose assumptions render in mm and mrad and are
-  named by their assumption id, because they are an assessment's sidecar,
-  not belief; the frames table, the 32 margins (mean ± sigma in mm,
-  P(violates); a row is accented `VIOLATED` only when `P(violates) ≥
-  confidence`, `UNRESOLVED` when it merely cannot be cleared at the stated
-  confidence, and nothing below), the probability bounds, the limitations verbatim,
-  and three identities (world, frame representation, assessment). A record
-  that does not declare whether its inputs are measured or synthetic says
-  so in its notes. Refused, never drawn: an acceptance that outruns its
-  calibration, a covariance that does not match its margins, or bound
-  dimensions naming entities outside the declared subjects. The companion
-  `gat-fit-held-out-v1` evaluation renders its groups and residuals as
-  emitted; an empty one is an empty state (`NO_MEASUREMENTS`), not a pass.
-  A populated `DESCRIPTIVE_EVALUATION` shows nominal/observed coverage
-  tables with an `UNVALIDATED` headline. Factor-conditioned predictions
-  display local tangent corrections and explicitly retain reference frames;
-  they do not imply rebased canonical placements or field calibration.
+  (`gat-opening-fit-v1`), laid out to answer why it passed, failed or asked
+  for evidence. The headline is the *field acceptance* (`REQUEST_EVIDENCE`
+  until measurements exist), never the model's prediction, which appears as
+  a badged card. *Controlling clearance* names the margin the prediction
+  turns on — highest `P(violates)`, ties broken by the smallest margin, the
+  rule printed on the card — with its quantity class, frame, mean ± sigma
+  and probability, accented by the two tiers (`VIOLATED` only when
+  `P(violates) ≥ confidence`, `UNRESOLVED` when it merely cannot be cleared
+  at the stated confidence, nothing below); the tightest margin is named
+  beside it when it differs, so the truncated margins table can never hide
+  either. *Calibration* carries the status (`UNVALIDATED`). *Evidence still
+  missing* (titled *evidence* unless the acceptance is `REQUEST_EVIDENCE`)
+  reads from the record what the margins rest on — the five bound
+  dimensions, the pose bodies and their assumption id, the count of
+  in-sample factors — and states that the record carries no evidence
+  receipt; nothing on it is inferred. *Binding* names the opening and
+  assembly, their frames and the frame chains walked to the root
+  (`opening -> storey -> model`); a bound frame that is not declared, a
+  chain that cycles or a frame declared twice is refused. Pose assumptions
+  render in mm and mrad and are named by their assumption id, because they
+  are an assessment's sidecar, not belief; *coordinate convention* and
+  *factor inference* are cards when the record carries them (a null reads
+  `undeclared`; a committed canonical state is refused). The frames table
+  states each frame's parent, unit, origin and whether it is rotated; the
+  margins table (mean ± sigma in mm, P(violates), two-tier accents)
+  truncates at 20 rows with a note. *Inputs and identity* carries the
+  inputs declaration (`undeclared` when absent, and the notes say so), the
+  method version — as the record declares it, or "not declared in the
+  record", never the reader's own version — and the three identities
+  (world, frame representation, assessment). Refused, never drawn: an
+  acceptance that outruns its calibration, a covariance that does not match
+  its margins, or bound dimensions naming entities outside the declared
+  subjects. The companion `gat-fit-held-out-v1` evaluation renders a
+  populated `DESCRIPTIVE_EVALUATION` under an `UNVALIDATED` headline with
+  nominal/observed coverage per group and a *predicted vs measured* table
+  per residual (the value the prediction expected, the measured value, the
+  predictive sigma, the standardised residual) with the assessment digest
+  once on the evaluation card; a residual record the reader does not
+  recognise renders as emitted, every key a column. An empty evaluation is
+  an empty state (`NO_MEASUREMENTS`), not a pass. Factor-conditioned
+  predictions display local tangent corrections and explicitly retain
+  reference frames; they do not imply rebased canonical placements or field
+  calibration.
 * `gat ledger ledger.json [--html] [-o PATH]` — the execution-ledger
   timeline described above. Exit codes: 0 rendered timeline, 2 invalid or
   tampered chain, 3 I/O error.

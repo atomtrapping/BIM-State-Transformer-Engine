@@ -178,6 +178,38 @@ its id, and the global exact-placement statement stays on the frame record
 because the sidecar is not canonical belief. Drawing the assessment pose in
 STRUCTURE waits for an IFC-backed case with a scene to draw it in.
 
+### The fit surface around the benchmark
+
+The next milestone is one trustworthy opening-fit workflow on a permissioned
+external IFC model, and the interface is built around that benchmark: a
+practitioner selects the opening and the proposed assembly, inspects their
+frames and dimensions, sees the controlling clearance, compares predicted
+with measured geometry, sees which evidence is still missing, and can follow
+every assessment to its exact inputs and method version.
+
+What renders today from the two emitted records (`gat report`, described
+under *Surfaces* in the design language): the controlling clearance and its
+rule, the frame chains and bound dimensions, the evidence card, the
+predicted-vs-measured residuals, and the inputs-and-identity card. What
+waits for the benchmark, stated from the consumer's side:
+
+| Need | Why the surface cannot fill it yet | What the benchmark package must carry |
+|---|---|---|
+| Select the opening and assembly in STRUCTURE and bind the assessment by identity | the emitted subjects are synthetic ids with no IFC world to select them in | subjects as `EntityId`s present in the world the assessment names by `world_digest`, so a FIT mode binds fail-closed exactly as EVIDENCE binds a decision |
+| Show the criteria the fit was judged against | the record carries `required_clearance_m` only | the required width, height and clearance as a criteria record with its source |
+| Link the assessment to its method version | the record declares no producer version; the card says "not declared in the record" rather than printing the reader's own version | a `method` object (engine version, commit, contract ids) in the record — the card renders whatever it declares, verbatim |
+| Compare predicted with measured | the evaluation names its assessment by digest and its sources by id, nothing more | independently measured dimensions with instrument, date, a source not used for fitting, and calibration context |
+| Exercise every branch of the vocabulary | one synthetic case exists, and it is `SATISFIED` / `REQUEST_EVIDENCE` | reference outcomes for a clear fit, a clear violation and an unresolved case |
+| Show a useful blocked result | no blocked record exists yet | missing geometry or evidence must yield a structured blocked outcome, never an exception; the report will render it as an undecided headline naming the missing item |
+
+A ninth Workbench mode, FIT, is reserved for this: it will list the
+opening/assembly pairs the IR relationship graph offers, bind a
+`gat-opening-fit-v1` record to the selected pair by `EntityId` and world
+digest, and show the cards above beside STRUCTURE with the pair selected.
+It is not added until an IFC-backed assessment exists to fill it; an
+`unavailable` mode with a stated reason would say no more than this section
+does.
+
 ## Rules that hold in every mode
 
 1. **Projection never mutates its source.** The workbench renders and
