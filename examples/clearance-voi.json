@@ -1,0 +1,2033 @@
+{
+  "artifact_digest": "sha256:21c5ffc7456aa746d48bbe18b1f5b09df9e6b07289fad987bb8e9e7427ea5f36",
+  "comparisons": {
+    "cheapest_first": {
+      "acquisition_cost": 0.01,
+      "baseline": {
+        "decision": "REJECT",
+        "expected_loss": 1.0,
+        "p_fits": 0.5
+      },
+      "expected_loss_reduction": 0.0,
+      "expected_posterior_loss": 1.0,
+      "expected_total_loss": 1.01,
+      "field_validation": "NOT_ESTABLISHED",
+      "loss_unit": "declared decision-loss units",
+      "measurement_ids": [
+        "panel"
+      ],
+      "model_digest": "sha256:80d4e0d716866e1cc69ace51204aa32976a34f720c1fb2980a464fa9d02ad574",
+      "model_expected_brier_score": 0.25,
+      "model_expected_decision_error": 0.5,
+      "net_value": -0.01,
+      "outcomes": [
+        {
+          "decision": "REJECT",
+          "expected_loss": 1.0,
+          "p_fits": 0.5,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 0.25
+            },
+            {
+              "id": "H-1",
+              "probability": 0.0
+            },
+            {
+              "id": "H-2",
+              "probability": 0.25
+            },
+            {
+              "id": "H-3",
+              "probability": 0.0
+            },
+            {
+              "id": "H-4",
+              "probability": 0.25
+            },
+            {
+              "id": "H-5",
+              "probability": 0.0
+            },
+            {
+              "id": "H-6",
+              "probability": 0.25
+            },
+            {
+              "id": "H-7",
+              "probability": 0.0
+            }
+          ],
+          "probability": 0.5,
+          "readings": [
+            [
+              "panel",
+              -0.1
+            ]
+          ]
+        },
+        {
+          "decision": "REJECT",
+          "expected_loss": 1.0,
+          "p_fits": 0.5,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 0.0
+            },
+            {
+              "id": "H-1",
+              "probability": 0.25
+            },
+            {
+              "id": "H-2",
+              "probability": 0.0
+            },
+            {
+              "id": "H-3",
+              "probability": 0.25
+            },
+            {
+              "id": "H-4",
+              "probability": 0.0
+            },
+            {
+              "id": "H-5",
+              "probability": 0.25
+            },
+            {
+              "id": "H-6",
+              "probability": 0.0
+            },
+            {
+              "id": "H-7",
+              "probability": 0.25
+            }
+          ],
+          "probability": 0.5,
+          "readings": [
+            [
+              "panel",
+              0.1
+            ]
+          ]
+        }
+      ],
+      "physical_action_authorized": false,
+      "result_digest": "sha256:4dc4249718f9e01fe712e7a77be2729ef2c28dd52329761cb1b637d9600ef701",
+      "schema": "gat.finite-decision-voi.v1",
+      "source_digest": "sha256:060717395dd06cb69be9c03f6158f013920120bb0e8521b28a458bd7ecd6ec6d"
+    },
+    "largest_uncertainty_first": {
+      "acquisition_cost": 0.01,
+      "baseline": {
+        "decision": "REJECT",
+        "expected_loss": 1.0,
+        "p_fits": 0.5
+      },
+      "expected_loss_reduction": 0.0,
+      "expected_posterior_loss": 1.0,
+      "expected_total_loss": 1.01,
+      "field_validation": "NOT_ESTABLISHED",
+      "loss_unit": "declared decision-loss units",
+      "measurement_ids": [
+        "panel"
+      ],
+      "model_digest": "sha256:80d4e0d716866e1cc69ace51204aa32976a34f720c1fb2980a464fa9d02ad574",
+      "model_expected_brier_score": 0.25,
+      "model_expected_decision_error": 0.5,
+      "net_value": -0.01,
+      "outcomes": [
+        {
+          "decision": "REJECT",
+          "expected_loss": 1.0,
+          "p_fits": 0.5,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 0.25
+            },
+            {
+              "id": "H-1",
+              "probability": 0.0
+            },
+            {
+              "id": "H-2",
+              "probability": 0.25
+            },
+            {
+              "id": "H-3",
+              "probability": 0.0
+            },
+            {
+              "id": "H-4",
+              "probability": 0.25
+            },
+            {
+              "id": "H-5",
+              "probability": 0.0
+            },
+            {
+              "id": "H-6",
+              "probability": 0.25
+            },
+            {
+              "id": "H-7",
+              "probability": 0.0
+            }
+          ],
+          "probability": 0.5,
+          "readings": [
+            [
+              "panel",
+              -0.1
+            ]
+          ]
+        },
+        {
+          "decision": "REJECT",
+          "expected_loss": 1.0,
+          "p_fits": 0.5,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 0.0
+            },
+            {
+              "id": "H-1",
+              "probability": 0.25
+            },
+            {
+              "id": "H-2",
+              "probability": 0.0
+            },
+            {
+              "id": "H-3",
+              "probability": 0.25
+            },
+            {
+              "id": "H-4",
+              "probability": 0.0
+            },
+            {
+              "id": "H-5",
+              "probability": 0.25
+            },
+            {
+              "id": "H-6",
+              "probability": 0.0
+            },
+            {
+              "id": "H-7",
+              "probability": 0.25
+            }
+          ],
+          "probability": 0.5,
+          "readings": [
+            [
+              "panel",
+              0.1
+            ]
+          ]
+        }
+      ],
+      "physical_action_authorized": false,
+      "result_digest": "sha256:4dc4249718f9e01fe712e7a77be2729ef2c28dd52329761cb1b637d9600ef701",
+      "schema": "gat.finite-decision-voi.v1",
+      "source_digest": "sha256:060717395dd06cb69be9c03f6158f013920120bb0e8521b28a458bd7ecd6ec6d"
+    },
+    "measure_everything": {
+      "acquisition_cost": 0.26,
+      "baseline": {
+        "decision": "REJECT",
+        "expected_loss": 1.0,
+        "p_fits": 0.5
+      },
+      "expected_loss_reduction": 1.0,
+      "expected_posterior_loss": 0.0,
+      "expected_total_loss": 0.26,
+      "field_validation": "NOT_ESTABLISHED",
+      "loss_unit": "declared decision-loss units",
+      "measurement_ids": [
+        "calibration",
+        "opening",
+        "panel"
+      ],
+      "model_digest": "sha256:80d4e0d716866e1cc69ace51204aa32976a34f720c1fb2980a464fa9d02ad574",
+      "model_expected_brier_score": 0.0,
+      "model_expected_decision_error": 0.0,
+      "net_value": 0.74,
+      "outcomes": [
+        {
+          "decision": "REJECT",
+          "expected_loss": 0.0,
+          "p_fits": 0.0,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 1.0
+            },
+            {
+              "id": "H-1",
+              "probability": 0.0
+            },
+            {
+              "id": "H-2",
+              "probability": 0.0
+            },
+            {
+              "id": "H-3",
+              "probability": 0.0
+            },
+            {
+              "id": "H-4",
+              "probability": 0.0
+            },
+            {
+              "id": "H-5",
+              "probability": 0.0
+            },
+            {
+              "id": "H-6",
+              "probability": 0.0
+            },
+            {
+              "id": "H-7",
+              "probability": 0.0
+            }
+          ],
+          "probability": 0.125,
+          "readings": [
+            [
+              "calibration",
+              0.0
+            ],
+            [
+              "opening",
+              2.0
+            ],
+            [
+              "panel",
+              -0.1
+            ]
+          ]
+        },
+        {
+          "decision": "REJECT",
+          "expected_loss": 0.0,
+          "p_fits": 0.0,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 0.0
+            },
+            {
+              "id": "H-1",
+              "probability": 1.0
+            },
+            {
+              "id": "H-2",
+              "probability": 0.0
+            },
+            {
+              "id": "H-3",
+              "probability": 0.0
+            },
+            {
+              "id": "H-4",
+              "probability": 0.0
+            },
+            {
+              "id": "H-5",
+              "probability": 0.0
+            },
+            {
+              "id": "H-6",
+              "probability": 0.0
+            },
+            {
+              "id": "H-7",
+              "probability": 0.0
+            }
+          ],
+          "probability": 0.125,
+          "readings": [
+            [
+              "calibration",
+              0.0
+            ],
+            [
+              "opening",
+              2.0
+            ],
+            [
+              "panel",
+              0.1
+            ]
+          ]
+        },
+        {
+          "decision": "FIT",
+          "expected_loss": 0.0,
+          "p_fits": 1.0,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 0.0
+            },
+            {
+              "id": "H-1",
+              "probability": 0.0
+            },
+            {
+              "id": "H-2",
+              "probability": 0.0
+            },
+            {
+              "id": "H-3",
+              "probability": 0.0
+            },
+            {
+              "id": "H-4",
+              "probability": 1.0
+            },
+            {
+              "id": "H-5",
+              "probability": 0.0
+            },
+            {
+              "id": "H-6",
+              "probability": 0.0
+            },
+            {
+              "id": "H-7",
+              "probability": 0.0
+            }
+          ],
+          "probability": 0.125,
+          "readings": [
+            [
+              "calibration",
+              0.0
+            ],
+            [
+              "opening",
+              2.02
+            ],
+            [
+              "panel",
+              -0.1
+            ]
+          ]
+        },
+        {
+          "decision": "FIT",
+          "expected_loss": 0.0,
+          "p_fits": 1.0,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 0.0
+            },
+            {
+              "id": "H-1",
+              "probability": 0.0
+            },
+            {
+              "id": "H-2",
+              "probability": 0.0
+            },
+            {
+              "id": "H-3",
+              "probability": 0.0
+            },
+            {
+              "id": "H-4",
+              "probability": 0.0
+            },
+            {
+              "id": "H-5",
+              "probability": 1.0
+            },
+            {
+              "id": "H-6",
+              "probability": 0.0
+            },
+            {
+              "id": "H-7",
+              "probability": 0.0
+            }
+          ],
+          "probability": 0.125,
+          "readings": [
+            [
+              "calibration",
+              0.0
+            ],
+            [
+              "opening",
+              2.02
+            ],
+            [
+              "panel",
+              0.1
+            ]
+          ]
+        },
+        {
+          "decision": "REJECT",
+          "expected_loss": 0.0,
+          "p_fits": 0.0,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 0.0
+            },
+            {
+              "id": "H-1",
+              "probability": 0.0
+            },
+            {
+              "id": "H-2",
+              "probability": 1.0
+            },
+            {
+              "id": "H-3",
+              "probability": 0.0
+            },
+            {
+              "id": "H-4",
+              "probability": 0.0
+            },
+            {
+              "id": "H-5",
+              "probability": 0.0
+            },
+            {
+              "id": "H-6",
+              "probability": 0.0
+            },
+            {
+              "id": "H-7",
+              "probability": 0.0
+            }
+          ],
+          "probability": 0.125,
+          "readings": [
+            [
+              "calibration",
+              0.02
+            ],
+            [
+              "opening",
+              2.02
+            ],
+            [
+              "panel",
+              -0.1
+            ]
+          ]
+        },
+        {
+          "decision": "REJECT",
+          "expected_loss": 0.0,
+          "p_fits": 0.0,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 0.0
+            },
+            {
+              "id": "H-1",
+              "probability": 0.0
+            },
+            {
+              "id": "H-2",
+              "probability": 0.0
+            },
+            {
+              "id": "H-3",
+              "probability": 1.0
+            },
+            {
+              "id": "H-4",
+              "probability": 0.0
+            },
+            {
+              "id": "H-5",
+              "probability": 0.0
+            },
+            {
+              "id": "H-6",
+              "probability": 0.0
+            },
+            {
+              "id": "H-7",
+              "probability": 0.0
+            }
+          ],
+          "probability": 0.125,
+          "readings": [
+            [
+              "calibration",
+              0.02
+            ],
+            [
+              "opening",
+              2.02
+            ],
+            [
+              "panel",
+              0.1
+            ]
+          ]
+        },
+        {
+          "decision": "FIT",
+          "expected_loss": 0.0,
+          "p_fits": 1.0,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 0.0
+            },
+            {
+              "id": "H-1",
+              "probability": 0.0
+            },
+            {
+              "id": "H-2",
+              "probability": 0.0
+            },
+            {
+              "id": "H-3",
+              "probability": 0.0
+            },
+            {
+              "id": "H-4",
+              "probability": 0.0
+            },
+            {
+              "id": "H-5",
+              "probability": 0.0
+            },
+            {
+              "id": "H-6",
+              "probability": 1.0
+            },
+            {
+              "id": "H-7",
+              "probability": 0.0
+            }
+          ],
+          "probability": 0.125,
+          "readings": [
+            [
+              "calibration",
+              0.02
+            ],
+            [
+              "opening",
+              2.04
+            ],
+            [
+              "panel",
+              -0.1
+            ]
+          ]
+        },
+        {
+          "decision": "FIT",
+          "expected_loss": 0.0,
+          "p_fits": 1.0,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 0.0
+            },
+            {
+              "id": "H-1",
+              "probability": 0.0
+            },
+            {
+              "id": "H-2",
+              "probability": 0.0
+            },
+            {
+              "id": "H-3",
+              "probability": 0.0
+            },
+            {
+              "id": "H-4",
+              "probability": 0.0
+            },
+            {
+              "id": "H-5",
+              "probability": 0.0
+            },
+            {
+              "id": "H-6",
+              "probability": 0.0
+            },
+            {
+              "id": "H-7",
+              "probability": 1.0
+            }
+          ],
+          "probability": 0.125,
+          "readings": [
+            [
+              "calibration",
+              0.02
+            ],
+            [
+              "opening",
+              2.04
+            ],
+            [
+              "panel",
+              0.1
+            ]
+          ]
+        }
+      ],
+      "physical_action_authorized": false,
+      "result_digest": "sha256:6baa2bb1799828f8cc4a5030131d7f0bd1002975ea9f98d4557fd81970d9e87f",
+      "schema": "gat.finite-decision-voi.v1",
+      "source_digest": "sha256:060717395dd06cb69be9c03f6158f013920120bb0e8521b28a458bd7ecd6ec6d"
+    },
+    "no_measurement": {
+      "acquisition_cost": 0.0,
+      "baseline": {
+        "decision": "REJECT",
+        "expected_loss": 1.0,
+        "p_fits": 0.5
+      },
+      "expected_loss_reduction": 0.0,
+      "expected_posterior_loss": 1.0,
+      "expected_total_loss": 1.0,
+      "field_validation": "NOT_ESTABLISHED",
+      "loss_unit": "declared decision-loss units",
+      "measurement_ids": [],
+      "model_digest": "sha256:80d4e0d716866e1cc69ace51204aa32976a34f720c1fb2980a464fa9d02ad574",
+      "model_expected_brier_score": 0.25,
+      "model_expected_decision_error": 0.5,
+      "net_value": 0.0,
+      "outcomes": [
+        {
+          "decision": "REJECT",
+          "expected_loss": 1.0,
+          "p_fits": 0.5,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 0.125
+            },
+            {
+              "id": "H-1",
+              "probability": 0.125
+            },
+            {
+              "id": "H-2",
+              "probability": 0.125
+            },
+            {
+              "id": "H-3",
+              "probability": 0.125
+            },
+            {
+              "id": "H-4",
+              "probability": 0.125
+            },
+            {
+              "id": "H-5",
+              "probability": 0.125
+            },
+            {
+              "id": "H-6",
+              "probability": 0.125
+            },
+            {
+              "id": "H-7",
+              "probability": 0.125
+            }
+          ],
+          "probability": 1.0,
+          "readings": []
+        }
+      ],
+      "physical_action_authorized": false,
+      "result_digest": "sha256:937f1f4f9a4c3390a623125796f3233c79a6e631bcd940ee1b3cb6cce48d72f8",
+      "schema": "gat.finite-decision-voi.v1",
+      "source_digest": "sha256:060717395dd06cb69be9c03f6158f013920120bb0e8521b28a458bd7ecd6ec6d"
+    },
+    "one_step_voi": {
+      "acquisition_cost": 0.1,
+      "baseline": {
+        "decision": "REJECT",
+        "expected_loss": 1.0,
+        "p_fits": 0.5
+      },
+      "expected_loss_reduction": 0.5,
+      "expected_posterior_loss": 0.5,
+      "expected_total_loss": 0.6,
+      "field_validation": "NOT_ESTABLISHED",
+      "loss_unit": "declared decision-loss units",
+      "measurement_ids": [
+        "opening"
+      ],
+      "model_digest": "sha256:80d4e0d716866e1cc69ace51204aa32976a34f720c1fb2980a464fa9d02ad574",
+      "model_expected_brier_score": 0.125,
+      "model_expected_decision_error": 0.25,
+      "net_value": 0.4,
+      "outcomes": [
+        {
+          "decision": "REJECT",
+          "expected_loss": 0.0,
+          "p_fits": 0.0,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 0.5
+            },
+            {
+              "id": "H-1",
+              "probability": 0.5
+            },
+            {
+              "id": "H-2",
+              "probability": 0.0
+            },
+            {
+              "id": "H-3",
+              "probability": 0.0
+            },
+            {
+              "id": "H-4",
+              "probability": 0.0
+            },
+            {
+              "id": "H-5",
+              "probability": 0.0
+            },
+            {
+              "id": "H-6",
+              "probability": 0.0
+            },
+            {
+              "id": "H-7",
+              "probability": 0.0
+            }
+          ],
+          "probability": 0.25,
+          "readings": [
+            [
+              "opening",
+              2.0
+            ]
+          ]
+        },
+        {
+          "decision": "REJECT",
+          "expected_loss": 1.0,
+          "p_fits": 0.5,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 0.0
+            },
+            {
+              "id": "H-1",
+              "probability": 0.0
+            },
+            {
+              "id": "H-2",
+              "probability": 0.25
+            },
+            {
+              "id": "H-3",
+              "probability": 0.25
+            },
+            {
+              "id": "H-4",
+              "probability": 0.25
+            },
+            {
+              "id": "H-5",
+              "probability": 0.25
+            },
+            {
+              "id": "H-6",
+              "probability": 0.0
+            },
+            {
+              "id": "H-7",
+              "probability": 0.0
+            }
+          ],
+          "probability": 0.5,
+          "readings": [
+            [
+              "opening",
+              2.02
+            ]
+          ]
+        },
+        {
+          "decision": "FIT",
+          "expected_loss": 0.0,
+          "p_fits": 1.0,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 0.0
+            },
+            {
+              "id": "H-1",
+              "probability": 0.0
+            },
+            {
+              "id": "H-2",
+              "probability": 0.0
+            },
+            {
+              "id": "H-3",
+              "probability": 0.0
+            },
+            {
+              "id": "H-4",
+              "probability": 0.0
+            },
+            {
+              "id": "H-5",
+              "probability": 0.0
+            },
+            {
+              "id": "H-6",
+              "probability": 0.5
+            },
+            {
+              "id": "H-7",
+              "probability": 0.5
+            }
+          ],
+          "probability": 0.25,
+          "readings": [
+            [
+              "opening",
+              2.04
+            ]
+          ]
+        }
+      ],
+      "physical_action_authorized": false,
+      "result_digest": "sha256:e4c48e8b73d8303ec406924690c2851c5b61ea8bab58f7614893d912bee0df48",
+      "schema": "gat.finite-decision-voi.v1",
+      "source_digest": "sha256:060717395dd06cb69be9c03f6158f013920120bb0e8521b28a458bd7ecd6ec6d"
+    },
+    "opening_and_calibration": {
+      "acquisition_cost": 0.25,
+      "baseline": {
+        "decision": "REJECT",
+        "expected_loss": 1.0,
+        "p_fits": 0.5
+      },
+      "expected_loss_reduction": 1.0,
+      "expected_posterior_loss": 0.0,
+      "expected_total_loss": 0.25,
+      "field_validation": "NOT_ESTABLISHED",
+      "loss_unit": "declared decision-loss units",
+      "measurement_ids": [
+        "calibration",
+        "opening"
+      ],
+      "model_digest": "sha256:80d4e0d716866e1cc69ace51204aa32976a34f720c1fb2980a464fa9d02ad574",
+      "model_expected_brier_score": 0.0,
+      "model_expected_decision_error": 0.0,
+      "net_value": 0.75,
+      "outcomes": [
+        {
+          "decision": "REJECT",
+          "expected_loss": 0.0,
+          "p_fits": 0.0,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 0.5
+            },
+            {
+              "id": "H-1",
+              "probability": 0.5
+            },
+            {
+              "id": "H-2",
+              "probability": 0.0
+            },
+            {
+              "id": "H-3",
+              "probability": 0.0
+            },
+            {
+              "id": "H-4",
+              "probability": 0.0
+            },
+            {
+              "id": "H-5",
+              "probability": 0.0
+            },
+            {
+              "id": "H-6",
+              "probability": 0.0
+            },
+            {
+              "id": "H-7",
+              "probability": 0.0
+            }
+          ],
+          "probability": 0.25,
+          "readings": [
+            [
+              "calibration",
+              0.0
+            ],
+            [
+              "opening",
+              2.0
+            ]
+          ]
+        },
+        {
+          "decision": "FIT",
+          "expected_loss": 0.0,
+          "p_fits": 1.0,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 0.0
+            },
+            {
+              "id": "H-1",
+              "probability": 0.0
+            },
+            {
+              "id": "H-2",
+              "probability": 0.0
+            },
+            {
+              "id": "H-3",
+              "probability": 0.0
+            },
+            {
+              "id": "H-4",
+              "probability": 0.5
+            },
+            {
+              "id": "H-5",
+              "probability": 0.5
+            },
+            {
+              "id": "H-6",
+              "probability": 0.0
+            },
+            {
+              "id": "H-7",
+              "probability": 0.0
+            }
+          ],
+          "probability": 0.25,
+          "readings": [
+            [
+              "calibration",
+              0.0
+            ],
+            [
+              "opening",
+              2.02
+            ]
+          ]
+        },
+        {
+          "decision": "REJECT",
+          "expected_loss": 0.0,
+          "p_fits": 0.0,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 0.0
+            },
+            {
+              "id": "H-1",
+              "probability": 0.0
+            },
+            {
+              "id": "H-2",
+              "probability": 0.5
+            },
+            {
+              "id": "H-3",
+              "probability": 0.5
+            },
+            {
+              "id": "H-4",
+              "probability": 0.0
+            },
+            {
+              "id": "H-5",
+              "probability": 0.0
+            },
+            {
+              "id": "H-6",
+              "probability": 0.0
+            },
+            {
+              "id": "H-7",
+              "probability": 0.0
+            }
+          ],
+          "probability": 0.25,
+          "readings": [
+            [
+              "calibration",
+              0.02
+            ],
+            [
+              "opening",
+              2.02
+            ]
+          ]
+        },
+        {
+          "decision": "FIT",
+          "expected_loss": 0.0,
+          "p_fits": 1.0,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 0.0
+            },
+            {
+              "id": "H-1",
+              "probability": 0.0
+            },
+            {
+              "id": "H-2",
+              "probability": 0.0
+            },
+            {
+              "id": "H-3",
+              "probability": 0.0
+            },
+            {
+              "id": "H-4",
+              "probability": 0.0
+            },
+            {
+              "id": "H-5",
+              "probability": 0.0
+            },
+            {
+              "id": "H-6",
+              "probability": 0.5
+            },
+            {
+              "id": "H-7",
+              "probability": 0.5
+            }
+          ],
+          "probability": 0.25,
+          "readings": [
+            [
+              "calibration",
+              0.02
+            ],
+            [
+              "opening",
+              2.04
+            ]
+          ]
+        }
+      ],
+      "physical_action_authorized": false,
+      "result_digest": "sha256:26241b6ef12cde4e87c7336e13953f00d0e5b840dce04c1fe4889b8206291650",
+      "schema": "gat.finite-decision-voi.v1",
+      "source_digest": "sha256:060717395dd06cb69be9c03f6158f013920120bb0e8521b28a458bd7ecd6ec6d"
+    }
+  },
+  "evaluation_scope": "Exact expectations under the synthetic design model; not held-out accuracy or uncertainty calibration.",
+  "independent_evaluation": "NOT_AVAILABLE",
+  "model": {
+    "false_fit_loss": 10.0,
+    "false_reject_loss": 2.0,
+    "hypotheses": [
+      {
+        "fits": false,
+        "id": "H-0",
+        "probability": 0.125,
+        "values": [
+          [
+            "equipment_width_m",
+            2.01
+          ],
+          [
+            "instrument_offset_m",
+            0.0
+          ],
+          [
+            "opening_width_m",
+            2.0
+          ],
+          [
+            "panel_offset_m",
+            -0.1
+          ]
+        ]
+      },
+      {
+        "fits": false,
+        "id": "H-1",
+        "probability": 0.125,
+        "values": [
+          [
+            "equipment_width_m",
+            2.01
+          ],
+          [
+            "instrument_offset_m",
+            0.0
+          ],
+          [
+            "opening_width_m",
+            2.0
+          ],
+          [
+            "panel_offset_m",
+            0.1
+          ]
+        ]
+      },
+      {
+        "fits": false,
+        "id": "H-2",
+        "probability": 0.125,
+        "values": [
+          [
+            "equipment_width_m",
+            2.01
+          ],
+          [
+            "instrument_offset_m",
+            0.02
+          ],
+          [
+            "opening_width_m",
+            2.0
+          ],
+          [
+            "panel_offset_m",
+            -0.1
+          ]
+        ]
+      },
+      {
+        "fits": false,
+        "id": "H-3",
+        "probability": 0.125,
+        "values": [
+          [
+            "equipment_width_m",
+            2.01
+          ],
+          [
+            "instrument_offset_m",
+            0.02
+          ],
+          [
+            "opening_width_m",
+            2.0
+          ],
+          [
+            "panel_offset_m",
+            0.1
+          ]
+        ]
+      },
+      {
+        "fits": true,
+        "id": "H-4",
+        "probability": 0.125,
+        "values": [
+          [
+            "equipment_width_m",
+            2.01
+          ],
+          [
+            "instrument_offset_m",
+            0.0
+          ],
+          [
+            "opening_width_m",
+            2.02
+          ],
+          [
+            "panel_offset_m",
+            -0.1
+          ]
+        ]
+      },
+      {
+        "fits": true,
+        "id": "H-5",
+        "probability": 0.125,
+        "values": [
+          [
+            "equipment_width_m",
+            2.01
+          ],
+          [
+            "instrument_offset_m",
+            0.0
+          ],
+          [
+            "opening_width_m",
+            2.02
+          ],
+          [
+            "panel_offset_m",
+            0.1
+          ]
+        ]
+      },
+      {
+        "fits": true,
+        "id": "H-6",
+        "probability": 0.125,
+        "values": [
+          [
+            "equipment_width_m",
+            2.01
+          ],
+          [
+            "instrument_offset_m",
+            0.02
+          ],
+          [
+            "opening_width_m",
+            2.02
+          ],
+          [
+            "panel_offset_m",
+            -0.1
+          ]
+        ]
+      },
+      {
+        "fits": true,
+        "id": "H-7",
+        "probability": 0.125,
+        "values": [
+          [
+            "equipment_width_m",
+            2.01
+          ],
+          [
+            "instrument_offset_m",
+            0.02
+          ],
+          [
+            "opening_width_m",
+            2.02
+          ],
+          [
+            "panel_offset_m",
+            0.1
+          ]
+        ]
+      }
+    ],
+    "loss_unit": "declared decision-loss units",
+    "measurements": [
+      {
+        "availability": "AVAILABLE",
+        "cost": 0.15,
+        "id": "calibration",
+        "permission": "PERMITTED",
+        "quantity": "shared instrument offset",
+        "unit": "m"
+      },
+      {
+        "availability": "AVAILABLE",
+        "cost": 0.1,
+        "id": "opening",
+        "permission": "PERMITTED",
+        "quantity": "indicated opening width",
+        "unit": "m"
+      },
+      {
+        "availability": "AVAILABLE",
+        "cost": 0.01,
+        "id": "panel",
+        "permission": "PERMITTED",
+        "quantity": "unrelated panel offset",
+        "unit": "m"
+      }
+    ],
+    "model_status": "SYNTHETIC",
+    "outcomes": [
+      {
+        "hypothesis_id": "H-0",
+        "probability": 1.0,
+        "readings": [
+          [
+            "calibration",
+            0.0
+          ],
+          [
+            "opening",
+            2.0
+          ],
+          [
+            "panel",
+            -0.1
+          ]
+        ]
+      },
+      {
+        "hypothesis_id": "H-1",
+        "probability": 1.0,
+        "readings": [
+          [
+            "calibration",
+            0.0
+          ],
+          [
+            "opening",
+            2.0
+          ],
+          [
+            "panel",
+            0.1
+          ]
+        ]
+      },
+      {
+        "hypothesis_id": "H-2",
+        "probability": 1.0,
+        "readings": [
+          [
+            "calibration",
+            0.02
+          ],
+          [
+            "opening",
+            2.02
+          ],
+          [
+            "panel",
+            -0.1
+          ]
+        ]
+      },
+      {
+        "hypothesis_id": "H-3",
+        "probability": 1.0,
+        "readings": [
+          [
+            "calibration",
+            0.02
+          ],
+          [
+            "opening",
+            2.02
+          ],
+          [
+            "panel",
+            0.1
+          ]
+        ]
+      },
+      {
+        "hypothesis_id": "H-4",
+        "probability": 1.0,
+        "readings": [
+          [
+            "calibration",
+            0.0
+          ],
+          [
+            "opening",
+            2.02
+          ],
+          [
+            "panel",
+            -0.1
+          ]
+        ]
+      },
+      {
+        "hypothesis_id": "H-5",
+        "probability": 1.0,
+        "readings": [
+          [
+            "calibration",
+            0.0
+          ],
+          [
+            "opening",
+            2.02
+          ],
+          [
+            "panel",
+            0.1
+          ]
+        ]
+      },
+      {
+        "hypothesis_id": "H-6",
+        "probability": 1.0,
+        "readings": [
+          [
+            "calibration",
+            0.02
+          ],
+          [
+            "opening",
+            2.04
+          ],
+          [
+            "panel",
+            -0.1
+          ]
+        ]
+      },
+      {
+        "hypothesis_id": "H-7",
+        "probability": 1.0,
+        "readings": [
+          [
+            "calibration",
+            0.02
+          ],
+          [
+            "opening",
+            2.04
+          ],
+          [
+            "panel",
+            0.1
+          ]
+        ]
+      }
+    ],
+    "provenance": "Explicit generated eight-state model; no independent survey evidence.",
+    "source_digest": "sha256:060717395dd06cb69be9c03f6158f013920120bb0e8521b28a458bd7ecd6ec6d"
+  },
+  "plan": {
+    "baseline": {
+      "acquisition_cost": 0.0,
+      "baseline": {
+        "decision": "REJECT",
+        "expected_loss": 1.0,
+        "p_fits": 0.5
+      },
+      "expected_loss_reduction": 0.0,
+      "expected_posterior_loss": 1.0,
+      "expected_total_loss": 1.0,
+      "field_validation": "NOT_ESTABLISHED",
+      "loss_unit": "declared decision-loss units",
+      "measurement_ids": [],
+      "model_digest": "sha256:80d4e0d716866e1cc69ace51204aa32976a34f720c1fb2980a464fa9d02ad574",
+      "model_expected_brier_score": 0.25,
+      "model_expected_decision_error": 0.5,
+      "net_value": 0.0,
+      "outcomes": [
+        {
+          "decision": "REJECT",
+          "expected_loss": 1.0,
+          "p_fits": 0.5,
+          "posterior": [
+            {
+              "id": "H-0",
+              "probability": 0.125
+            },
+            {
+              "id": "H-1",
+              "probability": 0.125
+            },
+            {
+              "id": "H-2",
+              "probability": 0.125
+            },
+            {
+              "id": "H-3",
+              "probability": 0.125
+            },
+            {
+              "id": "H-4",
+              "probability": 0.125
+            },
+            {
+              "id": "H-5",
+              "probability": 0.125
+            },
+            {
+              "id": "H-6",
+              "probability": 0.125
+            },
+            {
+              "id": "H-7",
+              "probability": 0.125
+            }
+          ],
+          "probability": 1.0,
+          "readings": []
+        }
+      ],
+      "physical_action_authorized": false,
+      "result_digest": "sha256:937f1f4f9a4c3390a623125796f3233c79a6e631bcd940ee1b3cb6cce48d72f8",
+      "schema": "gat.finite-decision-voi.v1",
+      "source_digest": "sha256:060717395dd06cb69be9c03f6158f013920120bb0e8521b28a458bd7ecd6ec6d"
+    },
+    "disposition": "RECOMMEND_MEASUREMENT",
+    "excluded": [],
+    "field_validation": "NOT_ESTABLISHED",
+    "method": "gat.finite-decision-voi.v1",
+    "model_digest": "sha256:80d4e0d716866e1cc69ace51204aa32976a34f720c1fb2980a464fa9d02ad574",
+    "options": [
+      {
+        "acquisition_cost": 0.1,
+        "baseline": {
+          "decision": "REJECT",
+          "expected_loss": 1.0,
+          "p_fits": 0.5
+        },
+        "expected_loss_reduction": 0.5,
+        "expected_posterior_loss": 0.5,
+        "expected_total_loss": 0.6,
+        "field_validation": "NOT_ESTABLISHED",
+        "loss_unit": "declared decision-loss units",
+        "measurement_ids": [
+          "opening"
+        ],
+        "model_digest": "sha256:80d4e0d716866e1cc69ace51204aa32976a34f720c1fb2980a464fa9d02ad574",
+        "model_expected_brier_score": 0.125,
+        "model_expected_decision_error": 0.25,
+        "net_value": 0.4,
+        "outcomes": [
+          {
+            "decision": "REJECT",
+            "expected_loss": 0.0,
+            "p_fits": 0.0,
+            "posterior": [
+              {
+                "id": "H-0",
+                "probability": 0.5
+              },
+              {
+                "id": "H-1",
+                "probability": 0.5
+              },
+              {
+                "id": "H-2",
+                "probability": 0.0
+              },
+              {
+                "id": "H-3",
+                "probability": 0.0
+              },
+              {
+                "id": "H-4",
+                "probability": 0.0
+              },
+              {
+                "id": "H-5",
+                "probability": 0.0
+              },
+              {
+                "id": "H-6",
+                "probability": 0.0
+              },
+              {
+                "id": "H-7",
+                "probability": 0.0
+              }
+            ],
+            "probability": 0.25,
+            "readings": [
+              [
+                "opening",
+                2.0
+              ]
+            ]
+          },
+          {
+            "decision": "REJECT",
+            "expected_loss": 1.0,
+            "p_fits": 0.5,
+            "posterior": [
+              {
+                "id": "H-0",
+                "probability": 0.0
+              },
+              {
+                "id": "H-1",
+                "probability": 0.0
+              },
+              {
+                "id": "H-2",
+                "probability": 0.25
+              },
+              {
+                "id": "H-3",
+                "probability": 0.25
+              },
+              {
+                "id": "H-4",
+                "probability": 0.25
+              },
+              {
+                "id": "H-5",
+                "probability": 0.25
+              },
+              {
+                "id": "H-6",
+                "probability": 0.0
+              },
+              {
+                "id": "H-7",
+                "probability": 0.0
+              }
+            ],
+            "probability": 0.5,
+            "readings": [
+              [
+                "opening",
+                2.02
+              ]
+            ]
+          },
+          {
+            "decision": "FIT",
+            "expected_loss": 0.0,
+            "p_fits": 1.0,
+            "posterior": [
+              {
+                "id": "H-0",
+                "probability": 0.0
+              },
+              {
+                "id": "H-1",
+                "probability": 0.0
+              },
+              {
+                "id": "H-2",
+                "probability": 0.0
+              },
+              {
+                "id": "H-3",
+                "probability": 0.0
+              },
+              {
+                "id": "H-4",
+                "probability": 0.0
+              },
+              {
+                "id": "H-5",
+                "probability": 0.0
+              },
+              {
+                "id": "H-6",
+                "probability": 0.5
+              },
+              {
+                "id": "H-7",
+                "probability": 0.5
+              }
+            ],
+            "probability": 0.25,
+            "readings": [
+              [
+                "opening",
+                2.04
+              ]
+            ]
+          }
+        ],
+        "physical_action_authorized": false,
+        "result_digest": "sha256:e4c48e8b73d8303ec406924690c2851c5b61ea8bab58f7614893d912bee0df48",
+        "schema": "gat.finite-decision-voi.v1",
+        "source_digest": "sha256:060717395dd06cb69be9c03f6158f013920120bb0e8521b28a458bd7ecd6ec6d"
+      },
+      {
+        "acquisition_cost": 0.01,
+        "baseline": {
+          "decision": "REJECT",
+          "expected_loss": 1.0,
+          "p_fits": 0.5
+        },
+        "expected_loss_reduction": 0.0,
+        "expected_posterior_loss": 1.0,
+        "expected_total_loss": 1.01,
+        "field_validation": "NOT_ESTABLISHED",
+        "loss_unit": "declared decision-loss units",
+        "measurement_ids": [
+          "panel"
+        ],
+        "model_digest": "sha256:80d4e0d716866e1cc69ace51204aa32976a34f720c1fb2980a464fa9d02ad574",
+        "model_expected_brier_score": 0.25,
+        "model_expected_decision_error": 0.5,
+        "net_value": -0.01,
+        "outcomes": [
+          {
+            "decision": "REJECT",
+            "expected_loss": 1.0,
+            "p_fits": 0.5,
+            "posterior": [
+              {
+                "id": "H-0",
+                "probability": 0.25
+              },
+              {
+                "id": "H-1",
+                "probability": 0.0
+              },
+              {
+                "id": "H-2",
+                "probability": 0.25
+              },
+              {
+                "id": "H-3",
+                "probability": 0.0
+              },
+              {
+                "id": "H-4",
+                "probability": 0.25
+              },
+              {
+                "id": "H-5",
+                "probability": 0.0
+              },
+              {
+                "id": "H-6",
+                "probability": 0.25
+              },
+              {
+                "id": "H-7",
+                "probability": 0.0
+              }
+            ],
+            "probability": 0.5,
+            "readings": [
+              [
+                "panel",
+                -0.1
+              ]
+            ]
+          },
+          {
+            "decision": "REJECT",
+            "expected_loss": 1.0,
+            "p_fits": 0.5,
+            "posterior": [
+              {
+                "id": "H-0",
+                "probability": 0.0
+              },
+              {
+                "id": "H-1",
+                "probability": 0.25
+              },
+              {
+                "id": "H-2",
+                "probability": 0.0
+              },
+              {
+                "id": "H-3",
+                "probability": 0.25
+              },
+              {
+                "id": "H-4",
+                "probability": 0.0
+              },
+              {
+                "id": "H-5",
+                "probability": 0.25
+              },
+              {
+                "id": "H-6",
+                "probability": 0.0
+              },
+              {
+                "id": "H-7",
+                "probability": 0.25
+              }
+            ],
+            "probability": 0.5,
+            "readings": [
+              [
+                "panel",
+                0.1
+              ]
+            ]
+          }
+        ],
+        "physical_action_authorized": false,
+        "result_digest": "sha256:4dc4249718f9e01fe712e7a77be2729ef2c28dd52329761cb1b637d9600ef701",
+        "schema": "gat.finite-decision-voi.v1",
+        "source_digest": "sha256:060717395dd06cb69be9c03f6158f013920120bb0e8521b28a458bd7ecd6ec6d"
+      },
+      {
+        "acquisition_cost": 0.15,
+        "baseline": {
+          "decision": "REJECT",
+          "expected_loss": 1.0,
+          "p_fits": 0.5
+        },
+        "expected_loss_reduction": 0.0,
+        "expected_posterior_loss": 1.0,
+        "expected_total_loss": 1.15,
+        "field_validation": "NOT_ESTABLISHED",
+        "loss_unit": "declared decision-loss units",
+        "measurement_ids": [
+          "calibration"
+        ],
+        "model_digest": "sha256:80d4e0d716866e1cc69ace51204aa32976a34f720c1fb2980a464fa9d02ad574",
+        "model_expected_brier_score": 0.25,
+        "model_expected_decision_error": 0.5,
+        "net_value": -0.15,
+        "outcomes": [
+          {
+            "decision": "REJECT",
+            "expected_loss": 1.0,
+            "p_fits": 0.5,
+            "posterior": [
+              {
+                "id": "H-0",
+                "probability": 0.25
+              },
+              {
+                "id": "H-1",
+                "probability": 0.25
+              },
+              {
+                "id": "H-2",
+                "probability": 0.0
+              },
+              {
+                "id": "H-3",
+                "probability": 0.0
+              },
+              {
+                "id": "H-4",
+                "probability": 0.25
+              },
+              {
+                "id": "H-5",
+                "probability": 0.25
+              },
+              {
+                "id": "H-6",
+                "probability": 0.0
+              },
+              {
+                "id": "H-7",
+                "probability": 0.0
+              }
+            ],
+            "probability": 0.5,
+            "readings": [
+              [
+                "calibration",
+                0.0
+              ]
+            ]
+          },
+          {
+            "decision": "REJECT",
+            "expected_loss": 1.0,
+            "p_fits": 0.5,
+            "posterior": [
+              {
+                "id": "H-0",
+                "probability": 0.0
+              },
+              {
+                "id": "H-1",
+                "probability": 0.0
+              },
+              {
+                "id": "H-2",
+                "probability": 0.25
+              },
+              {
+                "id": "H-3",
+                "probability": 0.25
+              },
+              {
+                "id": "H-4",
+                "probability": 0.0
+              },
+              {
+                "id": "H-5",
+                "probability": 0.0
+              },
+              {
+                "id": "H-6",
+                "probability": 0.25
+              },
+              {
+                "id": "H-7",
+                "probability": 0.25
+              }
+            ],
+            "probability": 0.5,
+            "readings": [
+              [
+                "calibration",
+                0.02
+              ]
+            ]
+          }
+        ],
+        "physical_action_authorized": false,
+        "result_digest": "sha256:848e3b3778593535321d964bfede66f387e4a0c347da61915d303aa764699bd0",
+        "schema": "gat.finite-decision-voi.v1",
+        "source_digest": "sha256:060717395dd06cb69be9c03f6158f013920120bb0e8521b28a458bd7ecd6ec6d"
+      }
+    ],
+    "physical_action_authorized": false,
+    "result_digest": "sha256:c1c6bab3e1a5350c14aacdb45615202e712daf6464070a1898a99f64bc5c8981",
+    "schema": "gat.finite-decision-plan.v1",
+    "selected": "opening",
+    "selection_tolerance": 1e-11,
+    "source_digest": "sha256:060717395dd06cb69be9c03f6158f013920120bb0e8521b28a458bd7ecd6ec6d"
+  },
+  "predicted_reading_variance_m2": {
+    "calibration": 0.0001,
+    "opening": 0.00020000000000000036,
+    "panel": 0.010000000000000002
+  },
+  "schema": "gat.synthetic-clearance-voi-experiment.v1",
+  "source": {
+    "equipment_width": 2.01,
+    "fit": "opening_width >= equipment_width",
+    "frame": "local-opening",
+    "length_unit": "m",
+    "likelihood": "deterministic finite readings conditional on joint state; synthetic only",
+    "opening_widths": [
+      2.0,
+      2.02
+    ],
+    "prior": "uniform over the eight explicitly enumerated joint states",
+    "readings": "opening survey reports width + shared instrument offset; calibration reports that offset; panel survey reports unrelated panel offset",
+    "schema": "gat.synthetic-clearance-voi-source.v1",
+    "shared_instrument_offsets": [
+      0.0,
+      0.02
+    ],
+    "unrelated_panel_offsets": [
+      -0.1,
+      0.1
+    ]
+  }
+}
