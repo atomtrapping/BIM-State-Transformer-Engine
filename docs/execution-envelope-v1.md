@@ -19,15 +19,32 @@ The dependency now pins NumPy 2.3.5. An upgrade requires the original replay
 qualification on each supported Python/platform build, not a regenerated
 golden fixture or an approximate numerical comparison.
 
+The first pinned CI run qualified Python 3.12 but still refused Python 3.11
+with NumPy 2.3.5. A local subprocess experiment then changed only the BLAS
+core selection: Haswell preserved the golden world, while Sandybridge gave
+`5c80deec20ba0422f8861c7eb13e1ed66daa109305d66c2710be69323fdc6759`.
+The derived means remained byte-identical; covariance bytes differed.
+Thus the qualification also declares Haswell dispatch and one BLAS thread.
+This is a bounded x86-64/AVX2 configuration, not an ARM or arbitrary-CPU
+contract. The numerical probe must still pass on the actual host.
+
 ## Qualification
 
-Run after installation and before relying on historical exact continuation:
+Set controls **before starting Python**, after installation and before relying
+on historical exact continuation. On a compatible x86-64/AVX2 host:
 
-```console
+```sh
+export OPENBLAS_CORETYPE=Haswell
+export OPENBLAS_NUM_THREADS=1
 python validation/qualify_execution.py --output execution-qualification.json
 ```
 
-The command checks the declared NumPy version, a fresh legacy import, the
+PowerShell uses `$env:OPENBLAS_CORETYPE='Haswell'` and
+`$env:OPENBLAS_NUM_THREADS='1'` before the same Python command. GAT's library
+import does not overwrite caller process settings. CI declares both controls
+for every job. Reusing an already-imported NumPy process is not sufficient.
+
+The command checks the NumPy version and declared controls, a fresh legacy import, the
 unchanged checked-in snapshot, and its unchanged ledger. Their world identity
 must remain `f628952eaff3bac72edf1705da3d66e196bb6ee2736382535bd3f3c33a73a2ad`.
 Failure returns a nonzero exit code; there is no skip or alternative expected

@@ -1,5 +1,11 @@
 name: CI
 
+# Qualified x86-64/AVX2 execution controls, set before Python imports NumPy.
+# CPU-dispatched BLAS kernels can change derived covariance bytes.
+env:
+  OPENBLAS_CORETYPE: Haswell
+  OPENBLAS_NUM_THREADS: '1'
+
 on:
   push:
     branches: [main]

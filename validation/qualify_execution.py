@@ -27,6 +27,9 @@ def qualify():
                                  for name in ("legacy-v1-snapshot.json", "legacy-v1-ledger.json")},
               "scope": "this historical import/snapshot/ledger; not every computation or platform"}
     checks["declared_numpy_version"] = np.__version__ == QUALIFIED_NUMPY
+    controls = report["environment"]["controls"]
+    checks["declared_blas_core"] = controls.get("OPENBLAS_CORETYPE") == "Haswell"
+    checks["declared_blas_threads"] = controls.get("OPENBLAS_NUM_THREADS") == "1"
     try:
         source = (ROOT / "gat/demo/model.ifc").read_bytes().decode("utf-8")
         imported = GatSession.from_text(source, source="legacy-v1-model.ifc", identity_version=1)
