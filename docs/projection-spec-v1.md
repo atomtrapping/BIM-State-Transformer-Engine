@@ -276,6 +276,42 @@ surfaces will never blur the two. Nothing here is rendered until a model
 exists and emits such a record; the field list is a consumer's statement,
 shaped with the engine team, not a design of the model.
 
+### What the surfaces will read from a measurement recommendation
+
+When the engine can choose what to observe next, the surface's job is to
+explain the choice, not to make it: what remains uncertain, which
+measurement is recommended, why it matters to the decision, and what would
+change afterwards. The recommendation record the surfaces will read carries,
+per candidate action (measure the opening more accurately, verify the
+assembly's dimensions, improve the scan-to-building alignment, take another
+scan from a different viewpoint, or any other explicitly permitted action):
+the quantity or pose component it observes; the decision it bears on and the
+criterion that controls it today; the expected reduction in decision loss
+after the measurement, under the engine's stated model; the acquisition cost
+in the same declared unit; the net value (reduction minus cost) by which the
+candidates are ranked; the predicted outcome — the acceptance and the
+controlling probability the decision would most likely show afterwards, and
+the range they could take; the objective's name and version (an explicit
+value-of-information criterion, kept distinct from any expected-free-energy
+formula); and the model the prediction rests on, by digest. Where a shared
+variable — an alignment, a calibration — couples several candidates, the
+record names it, so the surface can show that one measurement informs
+several quantities.
+
+The card renders the ranking as the engine emitted it, names the objective
+verbatim, and keeps apart two things that are easy to conflate: the
+measurement that most reduces uncertainty and the measurement that most
+improves the decision — a dimension can be very uncertain and barely matter
+to whether the assembly fits. A recommendation requests nothing by itself:
+it names the next useful measurement in the words of the *evidence still
+missing* card, and the acquisition remains a permitted action someone takes.
+Nothing renders until the engine emits such a record. The first benchmark is
+one clearance decision with several available measurements; the surface will
+show the recommended selector beside cheapest-first,
+largest-uncertainty-first and measure-everything, with decision error,
+measurement cost and calibration against independent observations, so the
+comparison itself is inspectable.
+
 ## Rules that hold in every mode
 
 1. **Projection never mutates its source.** The workbench renders and
