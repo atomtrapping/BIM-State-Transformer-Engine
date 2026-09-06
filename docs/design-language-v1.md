@@ -141,8 +141,9 @@ first instances of those modes over one engine, and should be read as such:
 `gat workbench` composes all eight behind one mode toolbar in one offline
 file, with a single selection identity (`EntityId`) shared by every mode
 and a `ProjectionSpec` per mode that states its source, transformation,
-meaning, information loss, identity, frame and time. The contract is
-`docs/projection-spec-v1.md`.
+meaning, information loss, identity, frame, distance model and time —
+coordinates describe positions; the declared metric decides what a distance
+means. The contract is `docs/projection-spec-v1.md`.
 
 Three rules carry across every mode: projection never mutates its source;
 identity survives representation (the same digest names the same world in

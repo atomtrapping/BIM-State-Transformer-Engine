@@ -50,6 +50,7 @@ Modes are numbered 1–8 in this order on the toolbar and on the keyboard.
 | `loss` | what the projection drops or approximates |
 | `identity` | how subjects are named in this mode (`EntityId`, `VarId`, request id, event hash, world digest) |
 | `frame` | the coordinate frame or unit system, or `none` |
+| `metric` | the distance model the mode's measurements use — Euclidean in a declared Cartesian frame, geodesic on a declared reference ellipsoid, the shortest path on a mesh, the shortest permitted path through a network — or `none`, with the reason (see *Distances are declared*) |
 | `time` | which state in time the mode shows (one world digest, ledger sequence, file version) |
 | `availability` | `available`, `empty`, or `unavailable` (below) |
 | `reason` | for `empty` and `unavailable`: why, and what would fill the mode |
@@ -73,6 +74,28 @@ of each mode, and in full as JSON in the footer.
   what the seats will read once they exist (`frame` with a CRS, `time` with
   a survey epoch, and for GLOBE a defined connected-instrument class with
   declared tile sources).
+
+## Distances are declared, not assumed
+
+Coordinates describe positions; the geometry, the metric and the permitted
+connections decide what a distance means. Two rooms can be close on the
+plan and a long walk apart; two depots can be a short ellipsoidal
+separation and a much longer permitted route. So every mode declares its
+distance model in `metric`, and a distance shown on any surface is read
+under that declaration:
+
+| Context | Distance model | Where it appears |
+|---|---|---|
+| a declared local Cartesian frame | Euclidean distance in that frame, in its units | STRUCTURE (clearances, dimensions, reading offsets), EVIDENCE (clearances as the engine evaluated them), the fit report's margins |
+| locations across the Earth | geodesic distance and bearings on a declared reference ellipsoid | MAP and GLOBE, once a CRS is lowered (none today) |
+| terrain or a curved surface | the shortest path constrained to the mesh | no mode yet |
+| roads, corridors and doors | the shortest *permitted* path through a weighted network, under a declared distance rule | the reserved ACCESS representation |
+| a reading order, a timeline, a table of quantities | none — the canvas carries no metric | GRAPH, TIME, STATE, COMPLEXITY |
+
+A straight-line distance is never presented as a path, and a path length is
+never presented without the network and rule it was computed on. The
+relationship graph drawn by GRAPH has no metric at all: it is not an
+access graph, and its layout distances carry no information.
 
 ## Identity across modes
 
@@ -210,6 +233,49 @@ It is not added until an IFC-backed assessment exists to fill it; an
 `unavailable` mode with a stated reason would say no more than this section
 does.
 
+### What the surfaces will read from an observation
+
+Every measured position that reaches a surface — a held-out check in the
+fit report, a residual marker in STRUCTURE, a placement on a globe — is an
+observation with a calibration chain behind it (reference frame → antenna
+or instrument position → platform pose → sensor mounting → measurement
+model → estimated position and uncertainty), and the surfaces will draw
+only what that chain declares. The observation record the surfaces will
+read carries: the sensor identity and calibration version; the capture
+timestamp and its clock basis; the coordinate frame and units; the pose
+estimate and its covariance; the receiver solution status where one exists
+(`RTK fixed`, `float`, …), **recorded verbatim as a status and never
+converted into an accuracy claim**; the correction source and its age; a
+reference to the raw artifact; the processing method and version; and the
+association uncertainty between the observation and the object it is
+attributed to. A record missing its frame, its timestamp basis or its
+uncertainty is drawn as *unplaced* with the missing field named, exactly as
+the Earth Twin lists a record whose subject declares no position.
+
+Two numbers are kept apart on every surface: the fitting error of an
+alignment or estimate (an in-sample residual, which a wrong reference can
+make small) and its accuracy against withheld, independent controls. The
+fit report already separates in-sample factor residuals from the held-out
+evaluation; a registration or trajectory estimate will be shown the same
+way — residuals on one card, independent accuracy on another, and the
+systematic pattern of the residuals visible rather than summarised away.
+
+### What the surfaces will read from a learned model
+
+A prediction from a learned model (a physics-informed network, a graph
+network, a neural operator) is a representation like any other, and is
+drawn as a *prediction*, distinct from observed or believed state. To be
+drawn at all, a prediction record must declare its inputs (by identity and
+digest), its model version, its assumptions and the physical model it was
+trained against where there is one, its validation domain (the sites,
+geometries or operating conditions it was evaluated on, and whether the
+case at hand lies inside it), its uncertainty method, and the conventional
+baseline it was compared with. Prediction alone never proposes anything to
+the corpus: canonical admission is an engine decision on evidence, and the
+surfaces will never blur the two. Nothing here is rendered until a model
+exists and emits such a record; the field list is a consumer's statement,
+shaped with the engine team, not a design of the model.
+
 ## Rules that hold in every mode
 
 1. **Projection never mutates its source.** The workbench renders and
@@ -265,6 +331,7 @@ a stated contract rather than inventing one.
 | `transformation` | the representation (access graph, axial, segment, convex, visibility), the distance rule (topological, angular, metric), the radius, the normalization and the network boundary — every one changes the result, so an "accessibility score" without them is not a representation |
 | `meaning` | calculated spatial properties (connectivity, depth, a precisely defined integration or choice) — never a prediction of footfall, rent or behaviour, which needs additional data and validation and is reported as a separate, distinguished result |
 | `loss` | what the chosen representation drops (a graph carries no dimensions; an axial map carries no rooms) |
+| `metric` | the shortest permitted path through the weighted network under the declared distance rule and radius — the one place a path length appears, and never as a straight line |
 | `identity` | space and connection ids that resolve to `EntityId`s in the world the analysis names, so selection stays synchronized with STRUCTURE and GRAPH |
 | `time` | the state of the building the graph was drawn from, and the analysis date |
 | `availability` | `unavailable` in this release: no access graph is lowered into the IR, and the IR relationship graph drawn by GRAPH is *not* an access graph |

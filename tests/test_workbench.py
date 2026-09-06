@@ -140,7 +140,7 @@ class ProjectionSpecTests(unittest.TestCase):
     def test_every_mode_declares_its_loss_frame_and_time(self) -> None:
         for spec in self.specs(decision_bound=True, ledger_bound=True, audit_bound=True):
             for field in ("source", "transformation", "meaning", "loss", "identity",
-                          "frame", "time"):
+                          "frame", "metric", "time"):
                 self.assertTrue(getattr(spec, field), f"{spec.mode}.{field}")
         by_mode = {spec.mode: spec for spec in self.specs()}
         self.assertIn("marginals only", by_mode["STATE"].loss)
@@ -151,6 +151,21 @@ class ProjectionSpecTests(unittest.TestCase):
         self.assertIn("dimensions only", by_mode["STRUCTURE"].frame)
         self.assertIn("METRE x 1.0 -> m", by_mode["STATE"].frame)
 
+    def test_every_mode_declares_its_distance_model(self) -> None:
+        # Coordinates describe positions; the metric decides what a distance
+        # means, so each mode says which one it uses — or that it uses none.
+        by_mode = {spec.mode: spec for spec in self.specs()}
+        self.assertIn("Euclidean distance in the model frame", by_mode["STRUCTURE"].metric)
+        self.assertIn("never paths", by_mode["STRUCTURE"].metric)
+        self.assertIn("geodesic", by_mode["MAP"].metric)
+        self.assertIn("geodesic", by_mode["GLOBE"].metric)
+        self.assertIn("none declared", by_mode["GLOBE"].metric)
+        self.assertTrue(by_mode["GRAPH"].metric.startswith("none"))
+        self.assertIn("not an access graph", by_mode["GRAPH"].metric)
+        self.assertIn("Euclidean clearances", by_mode["EVIDENCE"].metric)
+        for mode in ("STATE", "TIME", "COMPLEXITY"):
+            self.assertTrue(by_mode[mode].metric.startswith("none"), mode)
+
     def test_spec_dict_declares_version_and_no_mutation(self) -> None:
         record = self.specs()[0].to_dict()
         self.assertEqual(record["version"], PROJECTION_SPEC_VERSION)
@@ -158,8 +173,8 @@ class ProjectionSpecTests(unittest.TestCase):
         self.assertEqual(
             set(record),
             {"version", "mode", "seat", "question", "surface_class", "source",
-             "transformation", "meaning", "loss", "identity", "frame", "time",
-             "availability", "reason", "mutates_source"},
+             "transformation", "meaning", "loss", "identity", "frame", "metric",
+             "time", "availability", "reason", "mutates_source"},
         )
 
 
@@ -306,6 +321,14 @@ class WorkbenchDocumentTests(unittest.TestCase):
         self.assertIn(READ_ONLY_FOOTER, self.html)
         self.assertIn(NON_AUTHORIZING_FOOTER, self.html)
         self.assertIn("frame model (m, +Z up, no CRS)", self.html)
+
+    def test_hidden_panels_are_not_laid_out(self) -> None:
+        # The STRUCTURE panel is a grid; without an explicit [hidden] rule that
+        # grid rule outranks the browser's, the hidden panel stays laid out over
+        # the others and swallows clicks on their disclosure strips.
+        structure_rule = self.html.index('.panel[data-mode="STRUCTURE"] { padding: 0; display: grid;')
+        hidden_rule = self.html.index(".panel[hidden] { display: none; }")
+        self.assertGreater(hidden_rule, structure_rule)
         for rule in self.payload["rules"]:
             self.assertIn(rule, self.html)
 

@@ -111,6 +111,12 @@ class ProjectionSpec:
     loss: str
     identity: str
     frame: str
+    #: The distance model the mode's measurements use — Euclidean in a
+    #: declared Cartesian frame, geodesic on a declared ellipsoid, the
+    #: shortest path on a mesh, the shortest permitted path through a
+    #: network — or none.  Coordinates describe positions; the metric and the
+    #: permitted connections decide what a distance means.
+    metric: str
     time: str
     availability: str
     reason: str
@@ -158,6 +164,8 @@ def projection_specs(
             loss="not assessable until a source exists",
             identity="EntityId (would be)",
             frame="none: no coordinate reference system is lowered",
+            metric="would be: geodesic distance on a declared reference ellipsoid "
+            "(none declared)",
             time="none",
             availability=UNAVAILABLE,
             reason=geographic,
@@ -173,6 +181,8 @@ def projection_specs(
             loss="not assessable until a source exists",
             identity="EntityId (would be)",
             frame="none: no geodetic datum is lowered",
+            metric="would be: geodesic distance and bearings on a declared reference "
+            "ellipsoid (none declared)",
             time="none",
             availability=UNAVAILABLE,
             reason=geographic
@@ -198,6 +208,8 @@ def projection_specs(
             "approximate boxes; exploded positions carry no information",
             identity="EntityId per element; world digest per scene",
             frame=model_frame,
+            metric=f"Euclidean distance in the {frame['id']} frame, metres; clearances "
+            "and reading offsets are straight-line, never paths",
             time=one_world + "; realizations are draws, not moments in time",
             availability=AVAILABLE,
             reason="",
@@ -216,6 +228,8 @@ def projection_specs(
             "carry no information",
             identity="EntityId",
             frame="none: a reading order",
+            metric="none: canvas distance carries no information, and no path metric is "
+            "defined — the relationship graph is not an access graph",
             time=one_world + "; the symbolic structure is immutable in v0",
             availability=AVAILABLE,
             reason="",
@@ -234,6 +248,7 @@ def projection_specs(
             "rounding at six significant digits",
             identity="EntityId plus quantity name (VarId)",
             frame=ir_units,
+            metric="none: quantities are per entity, in IR units",
             time=one_world,
             availability=AVAILABLE,
             reason="",
@@ -254,6 +269,7 @@ def projection_specs(
             "explicitly",
             identity="event seq and hash; prior and result world digests",
             frame="none",
+            metric="none: sequence order, not distance",
             time="ledger sequence order; wall-clock only where provenance recorded it",
             availability=AVAILABLE if ledger_bound else EMPTY,
             reason=""
@@ -276,6 +292,7 @@ def projection_specs(
             identity="request id and world digest; subjects are named by entity name, "
             "not EntityId (an engine contract, noted)",
             frame="as evaluated by the engine",
+            metric="Euclidean clearances in the frame the engine evaluated, as reported",
             time="the world the response was evaluated on",
             availability=AVAILABLE if decision_bound else EMPTY,
             reason=""
@@ -296,6 +313,7 @@ def projection_specs(
             loss="supported-product scope only (the audit's coverage boundary)",
             identity="source file sha256 and the lowered world digest",
             frame="the IFC length unit as audited",
+            metric="none",
             time="the audited file version",
             availability=AVAILABLE if audit_bound else EMPTY,
             reason="" if audit_bound else (audit_reason or "No IFC audit is bound."),
@@ -501,6 +519,7 @@ def render_workbench_html(
             ("information loss", spec["loss"]),
             ("identity", spec["identity"]),
             ("frame", spec["frame"]),
+            ("metric", spec["metric"]),
             ("time", spec["time"]),
             ("availability", spec["availability"]),
         ]
@@ -709,6 +728,10 @@ body { overflow: hidden; }
 #panels { overflow: hidden; position: relative; }
 .panel { position: absolute; inset: 0; overflow-y: auto; padding: 1rem; box-sizing: border-box; }
 .panel[data-mode="STRUCTURE"] { padding: 0; display: grid; grid-template-rows: auto 1fr; }
+/* A hidden panel must not stay laid out: the STRUCTURE grid rule above outranks the
+   browser's [hidden] rule, and an invisible absolute panel would intercept clicks
+   on every other mode's disclosure strip. */
+.panel[hidden] { display: none; }
 .panel[data-mode="STRUCTURE"] details.spec { margin: 0.6rem 1rem 0.4rem; }
 #structure { width: 100%; height: 100%; border: 0; background: #f5f4f1; }
 details.spec { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.8rem; }
