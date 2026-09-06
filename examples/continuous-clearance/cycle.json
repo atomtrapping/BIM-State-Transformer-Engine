@@ -1,0 +1,630 @@
+{
+  "schema": "gat-continuous-clearance-cycle-v1",
+  "initial_plan": {
+    "schema": "gat-continuous-width-voi-v1",
+    "world_digest": "0c351e3dbef727ebbf843c172e02e482eae8d83c15bb628a2624e4ff434bcfb2",
+    "belief_digest": "51d28763771850bb25ba5a825ae240a4730da57efa814c59a5a77562d238b576",
+    "raw_order": [
+      "IfcBuildingElementProxy:cycle-assembly.Depth",
+      "IfcBuildingElementProxy:cycle-assembly.Height",
+      "IfcBuildingElementProxy:cycle-assembly.Width",
+      "IfcOpeningElement:cycle-opening.Height",
+      "IfcOpeningElement:cycle-opening.Width"
+    ],
+    "frames_digest": "0b243804c034c6f5c58f3e23645a25ea266365dfc62cda545444a886ae76c354",
+    "epoch_ns": "1788652800000000000",
+    "clock_basis": "UTC_UNIX_NS",
+    "temporal_scope": "AT_DECLARED_EPOCH_ONLY",
+    "pose_assumption": "synthetic exact aligned/centred poses",
+    "opening": "cycle-opening",
+    "assembly": "cycle-assembly",
+    "loss_unit": "declared decision-loss units",
+    "false_accept_loss": 10.0,
+    "false_reject_loss": 2.0,
+    "required_clearance_m": 0.01,
+    "margin_row": [
+      0.0,
+      0.0,
+      -0.5,
+      0.0,
+      0.5
+    ],
+    "baseline": {
+      "p_width_gate": 0.5000000000000004,
+      "decision": "REJECT_WIDTH_GATE",
+      "expected_loss": 1.0000000000000009,
+      "margin_mean_m": 8.673617379884035e-18,
+      "margin_sigma_m": 0.007071067811865475
+    },
+    "options": [
+      {
+        "id": "opening-width",
+        "row": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "offset_m": 0.0,
+        "noise_sigma_m": 0.002,
+        "cost": 0.02,
+        "calibration_digest": "cfd38e9d95cbf722f92194524d72f1f4276e4c45c29feb78b97e5fe4213c0f98",
+        "available": true,
+        "permitted": true,
+        "predicted_reading_m": 2.02,
+        "predictive_sigma_m": 0.01019803902718557,
+        "margin_gain": 0.4807692307692308,
+        "posterior_margin_variance_m2": 2.5961538461538464e-05,
+        "expected_posterior_loss": 0.8474798159381979,
+        "numerical_error_estimate": 2.1094238991848578e-15,
+        "net_value": 0.13252018406180302,
+        "illustrative_outcomes": [
+          {
+            "predictive_z": -2,
+            "reading_m": 1.999603921945629,
+            "p_width_gate": 0.0271459141834274,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 0.0542918283668548,
+            "margin_mean_m": -0.009805806756909194,
+            "margin_sigma_m": 0.005095246653650681
+          },
+          {
+            "predictive_z": 0,
+            "reading_m": 2.02,
+            "p_width_gate": 0.5000000000000007,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 1.0000000000000013,
+            "margin_mean_m": 8.673617379884035e-18,
+            "margin_sigma_m": 0.005095246653650681
+          },
+          {
+            "predictive_z": 2,
+            "reading_m": 2.0403960780543713,
+            "p_width_gate": 0.9728540858165727,
+            "decision": "ACCEPT_WIDTH_GATE",
+            "expected_loss": 0.27145914183427267,
+            "margin_mean_m": 0.009805806756909211,
+            "margin_sigma_m": 0.005095246653650681
+          }
+        ]
+      },
+      {
+        "id": "assembly-width",
+        "row": [
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "offset_m": 0.0,
+        "noise_sigma_m": 0.002,
+        "cost": 0.03,
+        "calibration_digest": "cfd38e9d95cbf722f92194524d72f1f4276e4c45c29feb78b97e5fe4213c0f98",
+        "available": true,
+        "permitted": true,
+        "predicted_reading_m": 2.0,
+        "predictive_sigma_m": 0.01019803902718557,
+        "margin_gain": -0.4807692307692308,
+        "posterior_margin_variance_m2": 2.5961538461538464e-05,
+        "expected_posterior_loss": 0.8474798159381979,
+        "numerical_error_estimate": 2.1094238991848578e-15,
+        "net_value": 0.12252018406180301,
+        "illustrative_outcomes": [
+          {
+            "predictive_z": -2,
+            "reading_m": 1.979603921945629,
+            "p_width_gate": 0.9728540858165727,
+            "decision": "ACCEPT_WIDTH_GATE",
+            "expected_loss": 0.27145914183427267,
+            "margin_mean_m": 0.009805806756909211,
+            "margin_sigma_m": 0.005095246653650681
+          },
+          {
+            "predictive_z": 0,
+            "reading_m": 2.0,
+            "p_width_gate": 0.5000000000000007,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 1.0000000000000013,
+            "margin_mean_m": 8.673617379884035e-18,
+            "margin_sigma_m": 0.005095246653650681
+          },
+          {
+            "predictive_z": 2,
+            "reading_m": 2.0203960780543713,
+            "p_width_gate": 0.0271459141834274,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 0.0542918283668548,
+            "margin_mean_m": -0.009805806756909194,
+            "margin_sigma_m": 0.005095246653650681
+          }
+        ]
+      },
+      {
+        "id": "assembly-depth",
+        "row": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "offset_m": 0.0,
+        "noise_sigma_m": 0.002,
+        "cost": 0.001,
+        "calibration_digest": "cfd38e9d95cbf722f92194524d72f1f4276e4c45c29feb78b97e5fe4213c0f98",
+        "available": true,
+        "permitted": true,
+        "predicted_reading_m": 0.1,
+        "predictive_sigma_m": 0.02009975124224178,
+        "margin_gain": 0.0,
+        "posterior_margin_variance_m2": 5e-05,
+        "expected_posterior_loss": 1.0000000000000009,
+        "numerical_error_estimate": 0.0,
+        "net_value": -0.001,
+        "illustrative_outcomes": [
+          {
+            "predictive_z": -2,
+            "reading_m": 0.05980049751551644,
+            "p_width_gate": 0.5000000000000004,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 1.0000000000000009,
+            "margin_mean_m": 8.673617379884035e-18,
+            "margin_sigma_m": 0.007071067811865475
+          },
+          {
+            "predictive_z": 0,
+            "reading_m": 0.1,
+            "p_width_gate": 0.5000000000000004,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 1.0000000000000009,
+            "margin_mean_m": 8.673617379884035e-18,
+            "margin_sigma_m": 0.007071067811865475
+          },
+          {
+            "predictive_z": 2,
+            "reading_m": 0.14019950248448357,
+            "p_width_gate": 0.5000000000000004,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 1.0000000000000009,
+            "margin_mean_m": 8.673617379884035e-18,
+            "margin_sigma_m": 0.007071067811865475
+          }
+        ]
+      }
+    ],
+    "excluded": [],
+    "selected": "opening-width",
+    "scope": "ALIGNED_CENTRED_WIDTH_GATE_ONLY",
+    "full_fit_certified": false,
+    "field_validation": "NOT_ESTABLISHED",
+    "selection_tolerance": 1e-08,
+    "plan_digest": "sha256:eacf824bb14db78c18782b46d9ae34528d5943ddfcf499adfb5fb303e19e5cc1"
+  },
+  "forecast_plan": {
+    "schema": "gat-continuous-width-voi-v1",
+    "world_digest": "c6ae56b50b2f1231f960e57d246ff33b72626382443a8538c85aaa75fa990e3c",
+    "belief_digest": "42c305802687afb22f666ef3cf257b0cf961b3ed0ace36d368fd72f359982562",
+    "raw_order": [
+      "IfcBuildingElementProxy:cycle-assembly.Depth",
+      "IfcBuildingElementProxy:cycle-assembly.Height",
+      "IfcBuildingElementProxy:cycle-assembly.Width",
+      "IfcOpeningElement:cycle-opening.Height",
+      "IfcOpeningElement:cycle-opening.Width"
+    ],
+    "frames_digest": "0b243804c034c6f5c58f3e23645a25ea266365dfc62cda545444a886ae76c354",
+    "epoch_ns": "1788652860000000000",
+    "clock_basis": "UTC_UNIX_NS",
+    "temporal_scope": "AT_DECLARED_EPOCH_ONLY",
+    "pose_assumption": "synthetic exact aligned/centred poses",
+    "opening": "cycle-opening",
+    "assembly": "cycle-assembly",
+    "loss_unit": "declared decision-loss units",
+    "false_accept_loss": 10.0,
+    "false_reject_loss": 2.0,
+    "required_clearance_m": 0.01,
+    "margin_row": [
+      0.0,
+      0.0,
+      -0.5,
+      0.0,
+      0.5
+    ],
+    "baseline": {
+      "p_width_gate": 0.5000000000000004,
+      "decision": "REJECT_WIDTH_GATE",
+      "expected_loss": 1.0000000000000009,
+      "margin_mean_m": 8.673617379884035e-18,
+      "margin_sigma_m": 0.007106335201775948
+    },
+    "options": [
+      {
+        "id": "opening-width",
+        "row": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "offset_m": 0.0,
+        "noise_sigma_m": 0.002,
+        "cost": 0.02,
+        "calibration_digest": "cfd38e9d95cbf722f92194524d72f1f4276e4c45c29feb78b97e5fe4213c0f98",
+        "available": true,
+        "permitted": true,
+        "predicted_reading_m": 2.02,
+        "predictive_sigma_m": 0.011401754250991379,
+        "margin_gain": 0.3884615384615385,
+        "posterior_margin_variance_m2": 3.088269230769231e-05,
+        "expected_posterior_loss": 0.9080171462738617,
+        "numerical_error_estimate": 2.331468504109889e-15,
+        "net_value": 0.07198285372613923,
+        "illustrative_outcomes": [
+          {
+            "predictive_z": -2,
+            "reading_m": 1.9971964914980174,
+            "p_width_gate": 0.055466454160416234,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 0.11093290832083247,
+            "margin_mean_m": -0.008858285995000987,
+            "margin_sigma_m": 0.005557219836185384
+          },
+          {
+            "predictive_z": 0,
+            "reading_m": 2.02,
+            "p_width_gate": 0.5000000000000007,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 1.0000000000000013,
+            "margin_mean_m": 8.673617379884035e-18,
+            "margin_sigma_m": 0.005557219836185384
+          },
+          {
+            "predictive_z": 2,
+            "reading_m": 2.042803508501983,
+            "p_width_gate": 0.944533545839584,
+            "decision": "ACCEPT_WIDTH_GATE",
+            "expected_loss": 0.5546645416041596,
+            "margin_mean_m": 0.008858285995001004,
+            "margin_sigma_m": 0.005557219836185384
+          }
+        ]
+      },
+      {
+        "id": "assembly-width",
+        "row": [
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "offset_m": 0.0,
+        "noise_sigma_m": 0.002,
+        "cost": 0.03,
+        "calibration_digest": "cfd38e9d95cbf722f92194524d72f1f4276e4c45c29feb78b97e5fe4213c0f98",
+        "available": true,
+        "permitted": true,
+        "predicted_reading_m": 2.0,
+        "predictive_sigma_m": 0.011401754250991379,
+        "margin_gain": -0.3884615384615385,
+        "posterior_margin_variance_m2": 3.088269230769231e-05,
+        "expected_posterior_loss": 0.9080171462738617,
+        "numerical_error_estimate": 2.331468504109889e-15,
+        "net_value": 0.061982853726139236,
+        "illustrative_outcomes": [
+          {
+            "predictive_z": -2,
+            "reading_m": 1.9771964914980173,
+            "p_width_gate": 0.944533545839584,
+            "decision": "ACCEPT_WIDTH_GATE",
+            "expected_loss": 0.5546645416041596,
+            "margin_mean_m": 0.008858285995001004,
+            "margin_sigma_m": 0.005557219836185384
+          },
+          {
+            "predictive_z": 0,
+            "reading_m": 2.0,
+            "p_width_gate": 0.5000000000000007,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 1.0000000000000013,
+            "margin_mean_m": 8.673617379884035e-18,
+            "margin_sigma_m": 0.005557219836185384
+          },
+          {
+            "predictive_z": 2,
+            "reading_m": 2.022803508501983,
+            "p_width_gate": 0.055466454160416234,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 0.11093290832083247,
+            "margin_mean_m": -0.008858285995000987,
+            "margin_sigma_m": 0.005557219836185384
+          }
+        ]
+      },
+      {
+        "id": "assembly-depth",
+        "row": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "offset_m": 0.0,
+        "noise_sigma_m": 0.002,
+        "cost": 0.001,
+        "calibration_digest": "cfd38e9d95cbf722f92194524d72f1f4276e4c45c29feb78b97e5fe4213c0f98",
+        "available": true,
+        "permitted": true,
+        "predicted_reading_m": 0.1,
+        "predictive_sigma_m": 0.02009975124224178,
+        "margin_gain": 0.0,
+        "posterior_margin_variance_m2": 5.05e-05,
+        "expected_posterior_loss": 1.0000000000000009,
+        "numerical_error_estimate": 0.0,
+        "net_value": -0.001,
+        "illustrative_outcomes": [
+          {
+            "predictive_z": -2,
+            "reading_m": 0.05980049751551644,
+            "p_width_gate": 0.5000000000000004,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 1.0000000000000009,
+            "margin_mean_m": 8.673617379884035e-18,
+            "margin_sigma_m": 0.007106335201775948
+          },
+          {
+            "predictive_z": 0,
+            "reading_m": 0.1,
+            "p_width_gate": 0.5000000000000004,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 1.0000000000000009,
+            "margin_mean_m": 8.673617379884035e-18,
+            "margin_sigma_m": 0.007106335201775948
+          },
+          {
+            "predictive_z": 2,
+            "reading_m": 0.14019950248448357,
+            "p_width_gate": 0.5000000000000004,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 1.0000000000000009,
+            "margin_mean_m": 8.673617379884035e-18,
+            "margin_sigma_m": 0.007106335201775948
+          }
+        ]
+      }
+    ],
+    "excluded": [],
+    "selected": "opening-width",
+    "scope": "ALIGNED_CENTRED_WIDTH_GATE_ONLY",
+    "full_fit_certified": false,
+    "field_validation": "NOT_ESTABLISHED",
+    "selection_tolerance": 1e-08,
+    "plan_digest": "sha256:43a7df66ba2a765bb1f809dd502cfd85575286cea0ea6865e18d0b99b3aa6c4b"
+  },
+  "update": {
+    "prior_world_digest": "c6ae56b50b2f1231f960e57d246ff33b72626382443a8538c85aaa75fa990e3c",
+    "posterior_world_digest": "fe472bc49255ad7d58138e8adbb1b2697955025f8914215ea12e191084efbf4d",
+    "plan_digest": "sha256:43a7df66ba2a765bb1f809dd502cfd85575286cea0ea6865e18d0b99b3aa6c4b",
+    "evidence_digest": "6223d81bcc194661581f4730163b14a566d6bae1d98f49da8b510723bd151c91",
+    "evidence_kind": "SYNTHETIC",
+    "epoch_ns": "1788652860000000000",
+    "ledger_head": "feb5c7fea41700993ca8d1dd9480b5381e4863efd919ea60b15a91ded8b82e7c",
+    "margin_mean_m": -0.004661538461538375,
+    "margin_variance_m2": 3.088269230769231e-05,
+    "predicted_posterior_variance_m2": 3.088269230769231e-05,
+    "field_validation": "NOT_ESTABLISHED"
+  },
+  "posterior_plan": {
+    "schema": "gat-continuous-width-voi-v1",
+    "world_digest": "fe472bc49255ad7d58138e8adbb1b2697955025f8914215ea12e191084efbf4d",
+    "belief_digest": "0a25b6431d57f7a61425ba01417b731f4c70ef9133036167aba8f4b6b52ca06f",
+    "raw_order": [
+      "IfcBuildingElementProxy:cycle-assembly.Depth",
+      "IfcBuildingElementProxy:cycle-assembly.Height",
+      "IfcBuildingElementProxy:cycle-assembly.Width",
+      "IfcOpeningElement:cycle-opening.Height",
+      "IfcOpeningElement:cycle-opening.Width"
+    ],
+    "frames_digest": "0b243804c034c6f5c58f3e23645a25ea266365dfc62cda545444a886ae76c354",
+    "epoch_ns": "1788652860000000000",
+    "clock_basis": "UTC_UNIX_NS",
+    "temporal_scope": "AT_DECLARED_EPOCH_ONLY",
+    "pose_assumption": "synthetic exact aligned/centred poses",
+    "opening": "cycle-opening",
+    "assembly": "cycle-assembly",
+    "loss_unit": "declared decision-loss units",
+    "false_accept_loss": 10.0,
+    "false_reject_loss": 2.0,
+    "required_clearance_m": 0.01,
+    "margin_row": [
+      0.0,
+      0.0,
+      -0.5,
+      0.0,
+      0.5
+    ],
+    "baseline": {
+      "p_width_gate": 0.20078358140017744,
+      "decision": "REJECT_WIDTH_GATE",
+      "expected_loss": 0.40156716280035487,
+      "margin_mean_m": -0.004661538461538375,
+      "margin_sigma_m": 0.005557219836185384
+    },
+    "options": [
+      {
+        "id": "assembly-width",
+        "row": [
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "offset_m": 0.0,
+        "noise_sigma_m": 0.002,
+        "cost": 0.03,
+        "calibration_digest": "cfd38e9d95cbf722f92194524d72f1f4276e4c45c29feb78b97e5fe4213c0f98",
+        "available": true,
+        "permitted": true,
+        "predicted_reading_m": 1.9976923076923077,
+        "predictive_sigma_m": 0.011188936843700016,
+        "margin_gain": -0.48095238095238096,
+        "posterior_margin_variance_m2": 1.923809523809524e-06,
+        "expected_posterior_loss": 0.18824236701654018,
+        "numerical_error_estimate": 3.6082263540023635e-16,
+        "net_value": 0.1833247957838147,
+        "illustrative_outcomes": [
+          {
+            "predictive_z": -2,
+            "reading_m": 1.9753144340049076,
+            "p_width_gate": 0.9999945566018476,
+            "decision": "ACCEPT_WIDTH_GATE",
+            "expected_loss": 5.443398152449319e-05,
+            "margin_mean_m": 0.006101153169068308,
+            "margin_sigma_m": 0.0013870146083619754
+          },
+          {
+            "predictive_z": 0,
+            "reading_m": 1.9976923076923077,
+            "p_width_gate": 0.00038852478165433605,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 0.0007770495633086721,
+            "margin_mean_m": -0.004661538461538375,
+            "margin_sigma_m": 0.0013870146083619754
+          },
+          {
+            "predictive_z": 2,
+            "reading_m": 2.0200701813797077,
+            "p_width_gate": 4.9882343109886406e-29,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 9.976468621977281e-29,
+            "margin_mean_m": -0.015424230092145058,
+            "margin_sigma_m": 0.0013870146083619754
+          }
+        ]
+      },
+      {
+        "id": "assembly-depth",
+        "row": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "offset_m": 0.0,
+        "noise_sigma_m": 0.002,
+        "cost": 0.001,
+        "calibration_digest": "cfd38e9d95cbf722f92194524d72f1f4276e4c45c29feb78b97e5fe4213c0f98",
+        "available": true,
+        "permitted": true,
+        "predicted_reading_m": 0.1,
+        "predictive_sigma_m": 0.02009975124224178,
+        "margin_gain": 0.0,
+        "posterior_margin_variance_m2": 3.088269230769231e-05,
+        "expected_posterior_loss": 0.40156716280035487,
+        "numerical_error_estimate": 0.0,
+        "net_value": -0.001,
+        "illustrative_outcomes": [
+          {
+            "predictive_z": -2,
+            "reading_m": 0.05980049751551644,
+            "p_width_gate": 0.20078358140017744,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 0.40156716280035487,
+            "margin_mean_m": -0.004661538461538375,
+            "margin_sigma_m": 0.005557219836185384
+          },
+          {
+            "predictive_z": 0,
+            "reading_m": 0.1,
+            "p_width_gate": 0.20078358140017744,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 0.40156716280035487,
+            "margin_mean_m": -0.004661538461538375,
+            "margin_sigma_m": 0.005557219836185384
+          },
+          {
+            "predictive_z": 2,
+            "reading_m": 0.14019950248448357,
+            "p_width_gate": 0.20078358140017744,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 0.40156716280035487,
+            "margin_mean_m": -0.004661538461538375,
+            "margin_sigma_m": 0.005557219836185384
+          }
+        ]
+      },
+      {
+        "id": "opening-width",
+        "row": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "offset_m": 0.0,
+        "noise_sigma_m": 0.002,
+        "cost": 0.02,
+        "calibration_digest": "cfd38e9d95cbf722f92194524d72f1f4276e4c45c29feb78b97e5fe4213c0f98",
+        "available": true,
+        "permitted": true,
+        "predicted_reading_m": 2.008369230769231,
+        "predictive_sigma_m": 0.0028065856617824933,
+        "margin_gain": 0.197265625,
+        "posterior_margin_variance_m2": 3.0576171875e-05,
+        "expected_posterior_loss": 0.40156716280035554,
+        "numerical_error_estimate": 1.778852620761132e-10,
+        "net_value": -0.020000000000000667,
+        "illustrative_outcomes": [
+          {
+            "predictive_z": -2,
+            "reading_m": 2.002756059445666,
+            "p_width_gate": 0.1484121697487096,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 0.2968243394974192,
+            "margin_mean_m": -0.005768824210913499,
+            "margin_sigma_m": 0.005529572485735222
+          },
+          {
+            "predictive_z": 0,
+            "reading_m": 2.008369230769231,
+            "p_width_gate": 0.19960871696379667,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 0.39921743392759335,
+            "margin_mean_m": -0.004661538461538375,
+            "margin_sigma_m": 0.005529572485735222
+          },
+          {
+            "predictive_z": 2,
+            "reading_m": 2.013982402092796,
+            "p_width_gate": 0.26018612410255665,
+            "decision": "REJECT_WIDTH_GATE",
+            "expected_loss": 0.5203722482051133,
+            "margin_mean_m": -0.0035542527121632506,
+            "margin_sigma_m": 0.005529572485735222
+          }
+        ]
+      }
+    ],
+    "excluded": [],
+    "selected": "assembly-width",
+    "scope": "ALIGNED_CENTRED_WIDTH_GATE_ONLY",
+    "full_fit_certified": false,
+    "field_validation": "NOT_ESTABLISHED",
+    "selection_tolerance": 1e-08,
+    "plan_digest": "sha256:016d95077786d52bf93da2ea50364947c84b2333c20a124cb309200fbef13dd2"
+  },
+  "independent_evaluation": "NO_MEASUREMENTS",
+  "evidence_kind": "SYNTHETIC",
+  "replay": {
+    "world_digest": "fe472bc49255ad7d58138e8adbb1b2697955025f8914215ea12e191084efbf4d",
+    "ledger_head": "feb5c7fea41700993ca8d1dd9480b5381e4863efd919ea60b15a91ded8b82e7c",
+    "events_replayed": 2,
+    "matches_posterior": true
+  }
+}
