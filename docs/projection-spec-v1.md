@@ -315,34 +315,55 @@ report's SATISFIED / VIOLATED / UNRESOLVED.
 
 #### Field agreement with the producers
 
-Three producers exist or are drafted: the finite decision plan and saved
-experiment (`gat.finite-decision-plan.v1`, `gat.synthetic-clearance-voi-experiment.v1`,
+Three producers exist: the finite decision plan and saved experiment
+(`gat.finite-decision-plan.v1`, `gat.synthetic-clearance-voi-experiment.v1`,
 GAT #31, rendered by `gat report`), the continuous width-clearance cycle
 (`examples/continuous-clearance/cycle.json`, GAT #32, stacked on #31), and
-an uncommitted TypeScript draft in NotationsOS (`src/compute/clearance-voi.ts`,
-reported to carry loss reduction, cost, net value, hypothetical outcomes with
-posterior decisions, shared dependencies and the four comparator policies).
-The agreement below is written against the two committed records; the draft
-is to be confirmed against the same rows when it is committed, not re-derived.
+the NotationsOS clearance experiment (`payload.clearance-voi-experiment.v1`,
+method `payload.exact-clearance-value-of-information` 1.0.0, committed to
+`codex/payload-os-foundation` at `42fd5b6` with its own inspector at
+`/compute/clearance`). The first and third are the same decision model —
+finite joint states, one joint outcome channel, expected reduction in
+decision loss minus cost, one measurement then a decision — written twice
+with different words. The agreement below marks each consumer field against
+all three; the vocabulary table after it names every word that differs, so
+a surface reading either record can refuse unknown words consistently.
 
-| Consumer field | Finite plan / experiment (#31) | Continuous cycle (#32) | Standing |
-|---|---|---|---|
-| quantity observed, unit | `model.measurements[].quantity`, `unit` (the bare plan carries ids only, so the card reads `undeclared`) | affine measurement rows over raw metre variables | exists |
-| decision it bears on, controlling criterion | `source.fit` (a binary fit rule); no per-margin controlling criterion in a two-action model | the width gate `(opening − assembly)/2 ≥ clearance`, `WIDTH_GATE_ONLY` | exists as stated; the fit report's controlling clearance is a different record and is not conflated |
-| expected reduction in decision loss | `expected_loss_reduction` | candidate expected loss reduction | exists |
-| acquisition cost, unit | `acquisition_cost`, `loss_unit` | cost in the declared decision-loss unit | exists |
-| net value and ranking | `net_value`, `plan.options` order, `selected`, `selection_tolerance` | candidate ranking | exists; the card refuses a selection the ranking contradicts |
-| outcome branches with probabilities and decisions | `outcomes[]` (`readings`, `probability`, `posterior`, `p_fits`, `decision`, `expected_loss`), enumerated exhaustively | three *illustrative* readings that are not the integration; a numerical error estimate and Gaussian tail bound instead | exists for #31; **adapter** for #32: the card must label illustrative readings as such and show the error estimate as the range word, never as branches |
-| range semantics | none needed: branches are exhaustive | numerical error estimate plus tail bound | exists, stated |
-| objective name and version | `method` = `gat.finite-decision-voi.v1` | method id and version | exists |
-| model identity by digest | `model_digest`, `source_digest`, `result_digest`, `artifact_digest` | plan binds world, belief, frame representation and epoch; snapshot and ledger digests | exists |
-| shared variables coupling candidates | encoded in `hypotheses[].values` (the shared instrument offset) and in a measurement's `quantity` text; no explicit coupling field | shared calibration as a raw latent variable in the affine row with joint covariance | **adapter**: the card can show the coupling only by name today; an explicit "shares" field would let it draw which candidates one measurement informs |
-| permitted action | `availability`, `permission` declarations, `excluded[]`, `physical_action_authorized = false` | availability and permission declarations | exists; the card refuses `true` and refuses an available, permitted exclusion |
-| limitations and validation | `model_status`, `provenance`, `field_validation`, `independent_evaluation`, `evaluation_scope` | `SYNTHETIC`, `NO_MEASUREMENTS`, scope words | exists, rendered verbatim |
-| comparators | `comparisons` (no measurement, cheapest first, largest uncertainty first, one-step VOI, measure everything, opening and calibration) | none in the cycle record | exists for #31 |
-| what would change afterwards | per branch: `decision`, `p_fits`, `expected_loss` | the realised update (`update`, `posterior_plan`) after one reading | exists |
-| field-validated accuracy | — | — | **unavailable** by design until independent trials exist; the card shows `NOT_ESTABLISHED` / `NOT_AVAILABLE` and never a model expectation as accuracy |
-| a recommendation for a real IFC pair | — | — | **unavailable**: both records are synthetic; the FIT mode waits for the benchmark |
+| Consumer field | Finite plan / experiment (#31) | Continuous cycle (#32) | NotationsOS experiment (`42fd5b6`) | Standing |
+|---|---|---|---|---|
+| quantity observed, unit | `model.measurements[].quantity`, `unit` (the bare plan carries ids only, so the card reads `undeclared`) | affine measurement rows over raw metre variables | `actions[].target` ∈ OPENING_WIDTH / EQUIPMENT_WIDTH / ALIGNMENT_OFFSET, metres | exists |
+| decision it bears on, controlling criterion | `source.fit` (a binary fit rule) | the width gate, `WIDTH_GATE_ONLY` | minimum lateral margin ≥ `minimumSideClearanceM`, exact-decimal predicate named in the method | exists as stated; the fit report's controlling clearance is a different record and is not conflated |
+| expected reduction in decision loss | `expected_loss_reduction` | candidate expected loss reduction | `expectedValueOfSampleInformation` | exists |
+| acquisition cost, unit | `acquisition_cost`, `loss_unit` | cost in the declared unit | `actions[].cost`, `loss.unit` = `DECLARED_LOSS_UNIT` | exists |
+| net value and ranking | `net_value`, `plan.options` order, `selected`, `selection_tolerance` | candidate ranking | `netValue`, `selectionState` (POSITIVE_BEYOND_NUMERICAL_TOLERANCE / NONPOSITIVE / NUMERICALLY_AMBIGUOUS), `recommendation` | exists; both producers keep a tiny positive value unrecommended, NotationsOS names it as a state |
+| outcome branches with probabilities and decisions | `outcomes[]` enumerated exhaustively; a zero-probability reading is omitted | three *illustrative* readings that are not the integration; an error estimate and tail bound | `branches[]` enumerated; a zero-probability outcome is kept with a **null posterior** | exists for #31 and NotationsOS; **adapter** for #32; the two finite producers differ on impossible outcomes (omitted vs kept-null) and the surface must read both without inventing a posterior |
+| range semantics | none needed: branches are exhaustive | numerical error estimate plus tail bound | none needed | exists, stated |
+| objective name and version | `method` = `gat.finite-decision-voi.v1` | method id and version | `model.id` + `version` + `criterion` word | exists |
+| model identity by digest | `model_digest`, `source_digest`, `result_digest`, `artifact_digest` | world, belief, frame representation and epoch bindings | `modelDigest`, `manifestDigest`, run and result digests, evidence references per input | exists |
+| shared variables coupling candidates | encoded in `hypotheses[].values`; no explicit coupling field | shared calibration as a raw latent variable | `alignmentOffsetM` in every joint state plus `dependencyExplanation` text | **adapter**: named, not declared as a field in any producer |
+| permitted action | `availability` + `permission`, `excluded[]`, `physical_action_authorized = false` | availability and permission declarations | `permission` ∈ DECLARED_PERMITTED / PROHIBITED / UNRESOLVED, `eligible`, `physicalActionAuthorized = false` | exists; the card refuses a claimed authorization |
+| limitations and validation | `model_status`, `provenance`, `field_validation`, `independent_evaluation`, `evaluation_scope` | `SYNTHETIC`, `NO_MEASUREMENTS`, scope words | `evidenceClass`, `validationDomain`, `exclusions[]`, `interpretation`, `fieldAccuracyEstablished`, `independentVerification`, validation `state` | exists, rendered verbatim |
+| comparators | six fixed sets | none in the cycle record | five strategies (none, VOI, largest target variance, cheapest, all permitted) | exists |
+| what would change afterwards | per branch: `decision`, `p_fits`, `expected_loss` | the realised update after one reading | per branch: `decision`, `fitProbability`, `posteriorExpectedLoss`, `posterior` | exists |
+| field-validated accuracy | — | — | reference cases scored only with declared independence; `UNRESOLVED_INDEPENDENCE` withholds metrics | **unavailable** by design until independent trials exist |
+| a recommendation for a real IFC pair | — | — | — | **unavailable**: every record is synthetic; the FIT mode waits for the benchmark |
+
+Words that differ between the two finite producers, for the same meaning:
+
+| Meaning | GAT #31 | NotationsOS `42fd5b6` |
+|---|---|---|
+| a measurement is recommended | `RECOMMEND_MEASUREMENT` | `MEASUREMENT_RECOMMENDED` |
+| nothing is worth its cost | `NO_WORTHWHILE_AVAILABLE_MEASUREMENT` | `selectionState` NONPOSITIVE / NUMERICALLY_AMBIGUOUS on every action |
+| the two loss decisions | `FIT` / `REJECT` | `ACCEPT_FIT` / `REJECT_FIT` |
+| may this measurement be taken | `AVAILABLE` + `PERMITTED` | `DECLARED_PERMITTED` (else `PROHIBITED`, `UNRESOLVED`) |
+| what the inputs are | `model_status` SYNTHETIC / DECLARED_UNVALIDATED | `evidenceClass` SYNTHETIC_TEST / RECORDED_DECLARATION |
+| not field-validated | `field_validation` NOT_ESTABLISHED, `independent_evaluation` NOT_AVAILABLE | `fieldAccuracyEstablished` false, validation `UNRESOLVED_INDEPENDENCE` |
+| an impossible outcome | omitted from the branches | kept, with `posterior: null` |
+
+The surfaces refuse unknown vocabulary, so today each producer's words are
+listed in the palette that reads it; whether the two converge on one
+vocabulary is the producers' decision, recorded here as the consumer's
+request, not made for them.
 
 The card is tested on four cases and refuses a fifth: a positive
 recommendation (the saved experiment), no worthwhile measurement (every
