@@ -231,26 +231,35 @@ def decision_overlay(
         raise ValueError("decision was evaluated on a different world than the model")
 
     subjects: list[str] = []
+    uncertain: list[str] = []
     risks: list[dict[str, object]] = []
     requests: list[dict[str, str]] = []
     if report.operation == "acceptance":
         for check in result["checks"]:
-            # Only elements the case could not clear at its confidence are
-            # painted with the disposition; the rest stay identity-coloured.
-            uncleared_above = 1.0 - float(check["confidence"])
+            # Two tiers, and uncertain is never red: an element confidently
+            # violated (P(violates) >= confidence) takes the disposition
+            # colour; one the case merely could not clear (between
+            # 1 - confidence and confidence) is UNRESOLVED amber; the rest
+            # keep their identity hue.
+            confidence = float(check["confidence"])
             for risk in check.get("details", {}).get("risks", []):
                 element = str(risk["element"])
-                if float(risk["p_violates"]) > uncleared_above and element not in subjects:
-                    subjects.append(element)
+                p_violates = float(risk["p_violates"])
+                if p_violates >= confidence:
+                    if element not in subjects:
+                        subjects.append(element)
+                elif p_violates > 1.0 - confidence and element not in uncertain:
+                    uncertain.append(element)
                 risks.append(
                     {
                         "check_id": check["check_id"],
                         "element": element,
                         "clearance_mean": float(risk["clearance_mean"]),
                         "clearance_sigma": float(risk["clearance_sigma"]),
-                        "p_violates": float(risk["p_violates"]),
+                        "p_violates": p_violates,
                     }
                 )
+        uncertain = [element for element in uncertain if element not in subjects]
         requests = [
             {"action": str(item["action"]), "target": str(item["target"])}
             for item in result["evidence_requests"]
@@ -290,6 +299,8 @@ def decision_overlay(
         "reasons": list(report.notes),
         "requests": requests,
         "subjects": subjects,
+        "uncertain": uncertain,
+        "uncertain_color": disposition_hex("UNRESOLVED"),
         "risks": risks,
         "proposals": proposals,
         "footers": list(report.footers),
@@ -575,7 +586,10 @@ function hexToRgb(hex) {
 // -- decision overlay (bound server-side to this exact world) --------------
 const DECISION = SCENE.decision || null;
 const DECISION_SUBJECTS = new Set(DECISION ? DECISION.subjects : []);
+// Not confidently cleared is not violated: these pieces are UNRESOLVED amber.
+const DECISION_UNCERTAIN = new Set(DECISION && DECISION.uncertain ? DECISION.uncertain : []);
 const DECISION_RGB = DECISION ? hexToRgb(DECISION.color) : null;
+const UNCERTAIN_RGB = DECISION && DECISION.uncertain_color ? hexToRgb(DECISION.uncertain_color) : null;
 
 // -- per-sample geometry (built lazily, grouped by element class) ----------
 const FLOATS = 16; // center 3 + offset 3 + normal 3 + color 4 + explode 3
@@ -588,7 +602,14 @@ function buildSample(index) {
   const count = sample.element.length;
   const order = Array.from({ length: count }, (_, i) => i);
   const classOf = (i) => SCENE.elements[sample.element[i]].class;
-  const tinted = (i) => overlay && DECISION_SUBJECTS.has(SCENE.elements[sample.element[i]].name);
+  const verdictRgb = (i) => {
+    if (!overlay) return null;
+    const name = SCENE.elements[sample.element[i]].name;
+    if (DECISION_SUBJECTS.has(name)) return DECISION_RGB;
+    if (DECISION_UNCERTAIN.has(name)) return UNCERTAIN_RGB;
+    return null;
+  };
+  const tinted = (i) => verdictRgb(i) !== null;
   const alphaOf = (i) => tinted(i) ? 0.96 : SCENE.elements[sample.element[i]].alpha;
   order.sort((a, b) => (alphaOf(b) - alphaOf(a)) || (classOf(a) - classOf(b)) || (a - b));
   const data = new Float32Array(count * SPHERE.length * FLOATS);
@@ -596,7 +617,7 @@ function buildSample(index) {
   let cursor = 0;
   for (const i of order) {
     const element = SCENE.elements[sample.element[i]];
-    const rgb = tinted(i) ? DECISION_RGB : hexToRgb(element.color);
+    const rgb = verdictRgb(i) || hexToRgb(element.color);
     const alpha = alphaOf(i);
     const transparent = alpha < 0.5;
     const ex = element.explode;

@@ -22,8 +22,11 @@ palette source). A lockstep test keeps the two palettes bit-identical.
    in words only (ASCII, no ANSI colour — stable in logs and CI). GUI and
    HTML surfaces add colour as reinforcement; a colour-blind reader loses
    nothing.
-4. **Red is a decision, not a malfunction.** A refused or failed request is
-   grey (`ERROR`), so red keeps meaning "the engine decided: stop".
+4. **Red is a decision, not a malfunction — and not uncertainty.** A
+   refused or failed request is grey (`ERROR`), so red keeps meaning "the
+   engine decided: stop". A probability between the decision thresholds
+   (not confidently cleared, not confidently violated) renders `UNRESOLVED`
+   amber, never red: only `P(violates) ≥ confidence` earns `VIOLATED`.
 5. **Reports are inert artifacts; instruments are self-contained.** Human
    surfaces come in two classes. *Reports* (decision pages, timelines,
    audits) carry no scripts and fetch nothing; interactivity is native
@@ -166,9 +169,9 @@ assurance flags render `no` in plain sight and audit statuses like
   status (`UNVALIDATED`). Pose assumptions render in mm and mrad and are
   named by their assumption id, because they are an assessment's sidecar,
   not belief; the frames table, the 32 margins (mean ± sigma in mm,
-  P(violates); a row is accented `VIOLATED` only when violation reaches
-  the stated confidence, and `UNRESOLVED` between decision thresholds),
-  the probability bounds, the limitations verbatim,
+  P(violates); a row is accented `VIOLATED` only when `P(violates) ≥
+  confidence`, `UNRESOLVED` when it merely cannot be cleared at the stated
+  confidence, and nothing below), the probability bounds, the limitations verbatim,
   and three identities (world, frame representation, assessment). A record
   that does not declare whether its inputs are measured or synthetic says
   so in its notes. Refused, never drawn: an acceptance that outruns its
@@ -212,11 +215,14 @@ assurance flags render `no` in plain sight and audit statuses like
   decision overlay. The response is bound to the loaded model fail-closed:
   its world digest (for beam assurance, its prior-world digest) must equal
   the model's, and a request must carry the same request id and
-  operation. Elements the case could not clear at its confidence
-  (`P(violation) > 1 − confidence`), the assessed beam, or a change's
-  impacted entities are painted with the disposition colour — the one
-  place signal colour *fills* geometry, because it *is* a verdict (audit
-  statuses may *outline* a piece, see below, and never fill it). The
+  operation. Elements confidently violated (`P(violation) ≥ confidence`),
+  the assessed beam, or a change's impacted entities are painted with the
+  disposition colour — the one place signal colour *fills* geometry,
+  because it *is* a verdict (audit statuses may *outline* a piece, see
+  below, and never fill it). Elements the case could not clear but did not
+  confidently violate (between `1 − confidence` and `confidence`) are
+  painted `UNRESOLVED` amber: uncertain is never red. The acceptance
+  report's element-risks table accents its rows by the same two tiers. The
   request's proposed clearance boxes are drawn as always-visible wireframes
   in the same colour, so a REJECT is seen at the exact spot it was
   decided. Because the engine's world digest currently carries the model's
