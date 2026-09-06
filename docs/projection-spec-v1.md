@@ -242,9 +242,49 @@ only partly:
   corpus limits (COMPLEXITY) without leaving one file. Whether people use
   it correctly is a field question this document cannot answer.
 
+## Reserved: ACCESS, a configuration representation
+
+Cartesian geometry answers where a thing is and what its dimensions are.
+Space Syntax asks a different question of the same building — which spaces
+can be reached from which others, how route continuity shapes
+accessibility, what can be seen from a location — and answers it over an
+explicit *representation of space* (rooms and their access graph, axial
+lines, segments, convex spaces, visibility fields), each a different aspect
+of spatial experience and none interchangeable with another. For this
+engine it would turn a dimensional fit into a configuration-aware
+assessment — "this opening fits physically; what does opening, closing or
+relocating it do to the connected spaces?" — with the two kinds of result
+kept distinct. It is a promising extension, not an implemented capability:
+the representation is reserved here so that the first implementation reads
+a stated contract rather than inventing one.
+
+| Field | What the ACCESS representation will require |
+|---|---|
+| `seat` | a versioned Space Syntax method; depthmapX and the QGIS Space Syntax Toolkit are the reference implementations to compare against before any algorithm is written here |
+| `source` | an access graph *supported by source information*: a traversable doorway is an IFC relationship or a documented observation, never two rooms touching geometrically, and a visible connection is not permitted access |
+| `transformation` | the representation (access graph, axial, segment, convex, visibility), the distance rule (topological, angular, metric), the radius, the normalization and the network boundary — every one changes the result, so an "accessibility score" without them is not a representation |
+| `meaning` | calculated spatial properties (connectivity, depth, a precisely defined integration or choice) — never a prediction of footfall, rent or behaviour, which needs additional data and validation and is reported as a separate, distinguished result |
+| `loss` | what the chosen representation drops (a graph carries no dimensions; an axial map carries no rooms) |
+| `identity` | space and connection ids that resolve to `EntityId`s in the world the analysis names, so selection stays synchronized with STRUCTURE and GRAPH |
+| `time` | the state of the building the graph was drawn from, and the analysis date |
+| `availability` | `unavailable` in this release: no access graph is lowered into the IR, and the IR relationship graph drawn by GRAPH is *not* an access graph |
+
+Connectivity uncertainty is the question the surfaces will have to draw
+honestly: a passage that may be open, closed or restricted changes the
+network itself, so its effect is evaluated as explicit scenarios reported
+side by side, not propagated as a small perturbation of a fixed model — and
+the scenario whose outcomes differ most names the next useful observation,
+in the same words the fit surface uses for missing evidence. The first case
+is one permissioned floor plan, not a city: an explicit access graph with
+source references; connectivity, depth and one defined integration measure;
+a baseline compared with one doorway or partition change; the plan and the
+graph with synchronized selection; and any movement interpretation compared
+against observations or a practitioner's review.
+
 ## Non-goals
 
 The workbench adds no judgement of its own: no derived scores, no
 aggregated traffic lights, no inferred correspondences between modes. It
 does not fetch anything. It does not implement the kepler.gl or CesiumJS
-seats; it reserves their modes and states what they would need.
+seats or the ACCESS representation; it reserves them and states what they
+would need.
