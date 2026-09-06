@@ -1,0 +1,259 @@
+{
+ "format": "gat-state-snapshot",
+ "integrity": {
+  "algorithm": "sha256",
+  "digest": "09a10b21fc61c7bf0349093c2ef6ae6c89b17676673e9d6b48e4541eb9a863e5"
+ },
+ "payload": {
+  "belief": {
+   "covariance": {
+    "dimension": 5,
+    "storage": "dense-row-major",
+    "values": [
+     0.0004,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     1e-06,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0001211923076923077,
+     0.0,
+     7.692307692307691e-07,
+     0.0,
+     0.0,
+     0.0,
+     1e-06,
+     0.0,
+     0.0,
+     0.0,
+     7.692307692307691e-07,
+     0.0,
+     3.8769230769230766e-06
+    ]
+   },
+   "mean": [
+    0.1,
+    2.0,
+    1.9976923076923077,
+    2.2,
+    2.008369230769231
+   ],
+   "raw_variables": [
+    {
+     "entity": {
+      "global_id": "cycle-assembly",
+      "ifc_class": "IfcBuildingElementProxy"
+     },
+     "quantity": "Depth"
+    },
+    {
+     "entity": {
+      "global_id": "cycle-assembly",
+      "ifc_class": "IfcBuildingElementProxy"
+     },
+     "quantity": "Height"
+    },
+    {
+     "entity": {
+      "global_id": "cycle-assembly",
+      "ifc_class": "IfcBuildingElementProxy"
+     },
+     "quantity": "Width"
+    },
+    {
+     "entity": {
+      "global_id": "cycle-opening",
+      "ifc_class": "IfcOpeningElement"
+     },
+     "quantity": "Height"
+    },
+    {
+     "entity": {
+      "global_id": "cycle-opening",
+      "ifc_class": "IfcOpeningElement"
+     },
+     "quantity": "Width"
+    }
+   ]
+  },
+  "module": {
+   "constraints": [],
+   "entities": [
+    {
+     "attrs": {},
+     "id": {
+      "global_id": "cycle-assembly",
+      "ifc_class": "IfcBuildingElementProxy"
+     },
+     "name": "cycle-assembly",
+     "placement": null,
+     "slots": [
+      {
+       "expr": null,
+       "prior_mu": 0.1,
+       "prior_sigma": 0.02,
+       "role": "raw",
+       "source_ref": null,
+       "unit": "m",
+       "var": {
+        "entity": {
+         "global_id": "cycle-assembly",
+         "ifc_class": "IfcBuildingElementProxy"
+        },
+        "quantity": "Depth"
+       }
+      },
+      {
+       "expr": null,
+       "prior_mu": 2.0,
+       "prior_sigma": 0.001,
+       "role": "raw",
+       "source_ref": null,
+       "unit": "m",
+       "var": {
+        "entity": {
+         "global_id": "cycle-assembly",
+         "ifc_class": "IfcBuildingElementProxy"
+        },
+        "quantity": "Height"
+       }
+      },
+      {
+       "expr": null,
+       "prior_mu": 2.0,
+       "prior_sigma": 0.01,
+       "role": "raw",
+       "source_ref": null,
+       "unit": "m",
+       "var": {
+        "entity": {
+         "global_id": "cycle-assembly",
+         "ifc_class": "IfcBuildingElementProxy"
+        },
+        "quantity": "Width"
+       }
+      }
+     ],
+     "source_ref": null
+    },
+    {
+     "attrs": {},
+     "id": {
+      "global_id": "cycle-opening",
+      "ifc_class": "IfcOpeningElement"
+     },
+     "name": "cycle-opening",
+     "placement": null,
+     "slots": [
+      {
+       "expr": null,
+       "prior_mu": 2.2,
+       "prior_sigma": 0.001,
+       "role": "raw",
+       "source_ref": null,
+       "unit": "m",
+       "var": {
+        "entity": {
+         "global_id": "cycle-opening",
+         "ifc_class": "IfcOpeningElement"
+        },
+        "quantity": "Height"
+       }
+      },
+      {
+       "expr": null,
+       "prior_mu": 2.02,
+       "prior_sigma": 0.01,
+       "role": "raw",
+       "source_ref": null,
+       "unit": "m",
+       "var": {
+        "entity": {
+         "global_id": "cycle-opening",
+         "ifc_class": "IfcOpeningElement"
+        },
+        "quantity": "Width"
+       }
+      }
+     ],
+     "source_ref": null
+    },
+    {
+     "attrs": {},
+     "id": {
+      "global_id": "cycle-wall",
+      "ifc_class": "IfcWall"
+     },
+     "name": "Host wall",
+     "placement": null,
+     "slots": [],
+     "source_ref": null
+    }
+   ],
+   "meta": {
+    "source": "synthetic-continuous-clearance-v1"
+   },
+   "relationships": [
+    {
+     "kind": "voids",
+     "source": {
+      "global_id": "cycle-opening",
+      "ifc_class": "IfcOpeningElement"
+     },
+     "source_ref": null,
+     "target": {
+      "global_id": "cycle-wall",
+      "ifc_class": "IfcWall"
+     }
+    }
+   ]
+  },
+  "provenance": {
+   "trace_events": [
+    {
+     "detail": "3 entities, 5 raw + 0 derived vars",
+     "digest": "0c351e3dbef727ebbf843c172e02e482eae8d83c15bb628a2624e4ff434bcfb2",
+     "name": "synthetic-continuous-clearance-v1",
+     "seq": 0,
+     "stage": "compile",
+     "verify": "PASS"
+    },
+    {
+     "detail": "restartable snapshot 2cdbe205e5ef",
+     "digest": "0c351e3dbef727ebbf843c172e02e482eae8d83c15bb628a2624e4ff434bcfb2",
+     "name": "examples\\continuous-clearance\\initial.snapshot.json",
+     "seq": 1,
+     "stage": "export",
+     "verify": "-"
+    },
+    {
+     "detail": "0 derived affected; incremental propagation recomputed 0 derived and 2 covariance rows",
+     "digest": "c6ae56b50b2f1231f960e57d246ff33b72626382443a8538c85aaa75fa990e3c",
+     "name": "evolve_linear_gaussian(calibration=8e5a8aef6",
+     "seq": 2,
+     "stage": "transform",
+     "verify": "PASS"
+    },
+    {
+     "detail": "0 derived affected; incremental propagation recomputed 0 derived and 2 covariance rows",
+     "digest": "fe472bc49255ad7d58138e8adbb1b2697955025f8914215ea12e191084efbf4d",
+     "name": "observe_linearized(evidence=6223d81bcc194661",
+     "seq": 3,
+     "stage": "observe",
+     "verify": "PASS"
+    }
+   ]
+  },
+  "source_configuration_digest": "29f2a93bf69a7302c7842fbb3c21eece7c8c8f63814f1b6d116a0c26f7127b2c",
+  "source_module_digest": "d36a632dfe8724ba8fdbc6eea16ea54e68689ae0ebf9e95485c9e7126ee5a606",
+  "source_world_digest": "fe472bc49255ad7d58138e8adbb1b2697955025f8914215ea12e191084efbf4d"
+ },
+ "runtime_contract": "gat-world-v1",
+ "schema_version": 1
+}

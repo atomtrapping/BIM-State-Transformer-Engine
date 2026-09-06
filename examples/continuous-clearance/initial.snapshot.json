@@ -1,0 +1,235 @@
+{
+ "format": "gat-state-snapshot",
+ "integrity": {
+  "algorithm": "sha256",
+  "digest": "2cdbe205e5ef68c473e82ab1b9754d35c274e74bba681fa716369d65aa577137"
+ },
+ "payload": {
+  "belief": {
+   "covariance": {
+    "dimension": 5,
+    "storage": "dense-row-major",
+    "values": [
+     0.0004,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     1e-06,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0001,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     1e-06,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0001
+    ]
+   },
+   "mean": [
+    0.1,
+    2.0,
+    2.0,
+    2.2,
+    2.02
+   ],
+   "raw_variables": [
+    {
+     "entity": {
+      "global_id": "cycle-assembly",
+      "ifc_class": "IfcBuildingElementProxy"
+     },
+     "quantity": "Depth"
+    },
+    {
+     "entity": {
+      "global_id": "cycle-assembly",
+      "ifc_class": "IfcBuildingElementProxy"
+     },
+     "quantity": "Height"
+    },
+    {
+     "entity": {
+      "global_id": "cycle-assembly",
+      "ifc_class": "IfcBuildingElementProxy"
+     },
+     "quantity": "Width"
+    },
+    {
+     "entity": {
+      "global_id": "cycle-opening",
+      "ifc_class": "IfcOpeningElement"
+     },
+     "quantity": "Height"
+    },
+    {
+     "entity": {
+      "global_id": "cycle-opening",
+      "ifc_class": "IfcOpeningElement"
+     },
+     "quantity": "Width"
+    }
+   ]
+  },
+  "module": {
+   "constraints": [],
+   "entities": [
+    {
+     "attrs": {},
+     "id": {
+      "global_id": "cycle-assembly",
+      "ifc_class": "IfcBuildingElementProxy"
+     },
+     "name": "cycle-assembly",
+     "placement": null,
+     "slots": [
+      {
+       "expr": null,
+       "prior_mu": 0.1,
+       "prior_sigma": 0.02,
+       "role": "raw",
+       "source_ref": null,
+       "unit": "m",
+       "var": {
+        "entity": {
+         "global_id": "cycle-assembly",
+         "ifc_class": "IfcBuildingElementProxy"
+        },
+        "quantity": "Depth"
+       }
+      },
+      {
+       "expr": null,
+       "prior_mu": 2.0,
+       "prior_sigma": 0.001,
+       "role": "raw",
+       "source_ref": null,
+       "unit": "m",
+       "var": {
+        "entity": {
+         "global_id": "cycle-assembly",
+         "ifc_class": "IfcBuildingElementProxy"
+        },
+        "quantity": "Height"
+       }
+      },
+      {
+       "expr": null,
+       "prior_mu": 2.0,
+       "prior_sigma": 0.01,
+       "role": "raw",
+       "source_ref": null,
+       "unit": "m",
+       "var": {
+        "entity": {
+         "global_id": "cycle-assembly",
+         "ifc_class": "IfcBuildingElementProxy"
+        },
+        "quantity": "Width"
+       }
+      }
+     ],
+     "source_ref": null
+    },
+    {
+     "attrs": {},
+     "id": {
+      "global_id": "cycle-opening",
+      "ifc_class": "IfcOpeningElement"
+     },
+     "name": "cycle-opening",
+     "placement": null,
+     "slots": [
+      {
+       "expr": null,
+       "prior_mu": 2.2,
+       "prior_sigma": 0.001,
+       "role": "raw",
+       "source_ref": null,
+       "unit": "m",
+       "var": {
+        "entity": {
+         "global_id": "cycle-opening",
+         "ifc_class": "IfcOpeningElement"
+        },
+        "quantity": "Height"
+       }
+      },
+      {
+       "expr": null,
+       "prior_mu": 2.02,
+       "prior_sigma": 0.01,
+       "role": "raw",
+       "source_ref": null,
+       "unit": "m",
+       "var": {
+        "entity": {
+         "global_id": "cycle-opening",
+         "ifc_class": "IfcOpeningElement"
+        },
+        "quantity": "Width"
+       }
+      }
+     ],
+     "source_ref": null
+    },
+    {
+     "attrs": {},
+     "id": {
+      "global_id": "cycle-wall",
+      "ifc_class": "IfcWall"
+     },
+     "name": "Host wall",
+     "placement": null,
+     "slots": [],
+     "source_ref": null
+    }
+   ],
+   "meta": {
+    "source": "synthetic-continuous-clearance-v1"
+   },
+   "relationships": [
+    {
+     "kind": "voids",
+     "source": {
+      "global_id": "cycle-opening",
+      "ifc_class": "IfcOpeningElement"
+     },
+     "source_ref": null,
+     "target": {
+      "global_id": "cycle-wall",
+      "ifc_class": "IfcWall"
+     }
+    }
+   ]
+  },
+  "provenance": {
+   "trace_events": [
+    {
+     "detail": "3 entities, 5 raw + 0 derived vars",
+     "digest": "0c351e3dbef727ebbf843c172e02e482eae8d83c15bb628a2624e4ff434bcfb2",
+     "name": "synthetic-continuous-clearance-v1",
+     "seq": 0,
+     "stage": "compile",
+     "verify": "PASS"
+    }
+   ]
+  },
+  "source_configuration_digest": "cd846e658049f3a26d9b5348f69c2750960983423aa08c46a730eda2def1d7bc",
+  "source_module_digest": "d36a632dfe8724ba8fdbc6eea16ea54e68689ae0ebf9e95485c9e7126ee5a606",
+  "source_world_digest": "0c351e3dbef727ebbf843c172e02e482eae8d83c15bb628a2624e4ff434bcfb2"
+ },
+ "runtime_contract": "gat-world-v1",
+ "schema_version": 1
+}

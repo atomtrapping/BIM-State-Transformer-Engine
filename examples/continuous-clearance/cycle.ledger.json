@@ -1,0 +1,444 @@
+{
+  "events": [
+    {
+      "error_digest": null,
+      "error_message": null,
+      "error_type": null,
+      "event_hash": "dbb142117c9a07aa24774a0eba801ed3c61466df0de4dd498c8cbb8122ca03e8",
+      "kind": "genesis",
+      "operation": {
+        "belief_digest": "51d28763771850bb25ba5a825ae240a4730da57efa814c59a5a77562d238b576",
+        "configuration_digest": "cd846e658049f3a26d9b5348f69c2750960983423aa08c46a730eda2def1d7bc",
+        "module_digest": "d36a632dfe8724ba8fdbc6eea16ea54e68689ae0ebf9e95485c9e7126ee5a606",
+        "runtime_contract": "gat-world-v1"
+      },
+      "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "prior_world_digest": "0c351e3dbef727ebbf843c172e02e482eae8d83c15bb628a2624e4ff434bcfb2",
+      "provenance": {},
+      "result_world_digest": "0c351e3dbef727ebbf843c172e02e482eae8d83c15bb628a2624e4ff434bcfb2",
+      "seq": 0,
+      "verification": {
+        "passed": true,
+        "results": [
+          {
+            "detail": "1 edges",
+            "invariant_id": "STRUCT-01",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "module"
+          },
+          {
+            "detail": "0 nodes",
+            "invariant_id": "STRUCT-02",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "spatial-tree"
+          },
+          {
+            "detail": "",
+            "invariant_id": "STRUCT-03",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "openings"
+          },
+          {
+            "detail": "",
+            "invariant_id": "GAUSS-01",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "belief"
+          },
+          {
+            "detail": "",
+            "invariant_id": "GAUSS-01",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "full"
+          },
+          {
+            "detail": "jitter=0",
+            "invariant_id": "GAUSS-02",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "belief"
+          },
+          {
+            "detail": "diag >= 0",
+            "invariant_id": "GAUSS-02",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "full"
+          },
+          {
+            "detail": "0 vars",
+            "invariant_id": "GAUSS-03",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "derived"
+          },
+          {
+            "detail": "",
+            "invariant_id": "CONS-01",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "nonneg"
+          },
+          {
+            "detail": "",
+            "invariant_id": "CONS-02",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "bounds"
+          },
+          {
+            "detail": "",
+            "invariant_id": "CONS-03",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "restatements"
+          },
+          {
+            "detail": "",
+            "invariant_id": "QTY-01",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "rollups"
+          }
+        ]
+      },
+      "verification_digest": "0c21b53b83b5fa8ea5052f50d698594b8bb08ea1b8a7526f10a417cb49929cfb"
+    },
+    {
+      "error_digest": null,
+      "error_message": null,
+      "error_type": null,
+      "event_hash": "1ba800a0f7a361959ad5fe89a842f7a836b0024f8348839239568fb5bdc3bf5a",
+      "kind": "transition",
+      "operation": {
+        "calibration_digest": "8e5a8aef60208c71366b46178d3b7ef2fa44396b1d83ced1dd0596841f73621e",
+        "elapsed_seconds": 60.0,
+        "model_id": "synthetic-60s-width-random-walk-v1",
+        "offset": [
+          0.0,
+          0.0
+        ],
+        "op": "evolve_linear_gaussian",
+        "process_covariance": [
+          [
+            2.6000000000000002e-05,
+            2.5e-05
+          ],
+          [
+            2.5e-05,
+            2.6000000000000002e-05
+          ]
+        ],
+        "targets": [
+          {
+            "entity": {
+              "global_id": "cycle-opening",
+              "ifc_class": "IfcOpeningElement"
+            },
+            "quantity": "Width"
+          },
+          {
+            "entity": {
+              "global_id": "cycle-assembly",
+              "ifc_class": "IfcBuildingElementProxy"
+            },
+            "quantity": "Width"
+          }
+        ],
+        "transition": [
+          [
+            1.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0
+          ]
+        ]
+      },
+      "previous_hash": "dbb142117c9a07aa24774a0eba801ed3c61466df0de4dd498c8cbb8122ca03e8",
+      "prior_world_digest": "0c351e3dbef727ebbf843c172e02e482eae8d83c15bb628a2624e4ff434bcfb2",
+      "provenance": {
+        "from_epoch_ns": "1788652800000000000",
+        "kind": "SYNTHETIC_PROCESS",
+        "to_epoch_ns": "1788652860000000000"
+      },
+      "result_world_digest": "c6ae56b50b2f1231f960e57d246ff33b72626382443a8538c85aaa75fa990e3c",
+      "seq": 1,
+      "verification": {
+        "passed": true,
+        "results": [
+          {
+            "detail": "1 edges",
+            "invariant_id": "STRUCT-01",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "module"
+          },
+          {
+            "detail": "0 nodes",
+            "invariant_id": "STRUCT-02",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "spatial-tree"
+          },
+          {
+            "detail": "",
+            "invariant_id": "STRUCT-03",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "openings"
+          },
+          {
+            "detail": "",
+            "invariant_id": "GAUSS-01",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "belief"
+          },
+          {
+            "detail": "",
+            "invariant_id": "GAUSS-01",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "full"
+          },
+          {
+            "detail": "jitter=0",
+            "invariant_id": "GAUSS-02",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "belief"
+          },
+          {
+            "detail": "diag >= 0",
+            "invariant_id": "GAUSS-02",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "full"
+          },
+          {
+            "detail": "0 vars",
+            "invariant_id": "GAUSS-03",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "derived"
+          },
+          {
+            "detail": "",
+            "invariant_id": "CONS-01",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "nonneg"
+          },
+          {
+            "detail": "",
+            "invariant_id": "CONS-02",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "bounds"
+          },
+          {
+            "detail": "",
+            "invariant_id": "CONS-03",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "restatements"
+          },
+          {
+            "detail": "",
+            "invariant_id": "QTY-01",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "rollups"
+          }
+        ]
+      },
+      "verification_digest": "0c21b53b83b5fa8ea5052f50d698594b8bb08ea1b8a7526f10a417cb49929cfb"
+    },
+    {
+      "error_digest": null,
+      "error_message": null,
+      "error_type": null,
+      "event_hash": "feb5c7fea41700993ca8d1dd9480b5381e4863efd919ea60b15a91ded8b82e7c",
+      "kind": "transition",
+      "operation": {
+        "evidence_digest": "6223d81bcc194661581f4730163b14a566d6bae1d98f49da8b510723bd151c91",
+        "expected_belief_digest": "42c305802687afb22f666ef3cf257b0cf961b3ed0ace36d368fd72f359982562",
+        "expected_raw_order": [
+          {
+            "entity": {
+              "global_id": "cycle-assembly",
+              "ifc_class": "IfcBuildingElementProxy"
+            },
+            "quantity": "Depth"
+          },
+          {
+            "entity": {
+              "global_id": "cycle-assembly",
+              "ifc_class": "IfcBuildingElementProxy"
+            },
+            "quantity": "Height"
+          },
+          {
+            "entity": {
+              "global_id": "cycle-assembly",
+              "ifc_class": "IfcBuildingElementProxy"
+            },
+            "quantity": "Width"
+          },
+          {
+            "entity": {
+              "global_id": "cycle-opening",
+              "ifc_class": "IfcOpeningElement"
+            },
+            "quantity": "Height"
+          },
+          {
+            "entity": {
+              "global_id": "cycle-opening",
+              "ifc_class": "IfcOpeningElement"
+            },
+            "quantity": "Width"
+          }
+        ],
+        "expected_world_digest": "c6ae56b50b2f1231f960e57d246ff33b72626382443a8538c85aaa75fa990e3c",
+        "label": "opening-width",
+        "noise_sigma": 0.002,
+        "observed": 2.008,
+        "op": "observe_linearized",
+        "predicted": 2.02,
+        "raw_targets": [
+          {
+            "entity": {
+              "global_id": "cycle-opening",
+              "ifc_class": "IfcOpeningElement"
+            },
+            "quantity": "Width"
+          }
+        ],
+        "row": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "previous_hash": "1ba800a0f7a361959ad5fe89a842f7a836b0024f8348839239568fb5bdc3bf5a",
+      "prior_world_digest": "c6ae56b50b2f1231f960e57d246ff33b72626382443a8538c85aaa75fa990e3c",
+      "provenance": {
+        "calibration_digest": "cfd38e9d95cbf722f92194524d72f1f4276e4c45c29feb78b97e5fe4213c0f98",
+        "clock_basis": "UTC_UNIX_NS",
+        "epoch_ns": "1788652860000000000",
+        "evidence_digest": "6223d81bcc194661581f4730163b14a566d6bae1d98f49da8b510723bd151c91",
+        "evidence_kind": "SYNTHETIC",
+        "plan_digest": "sha256:43a7df66ba2a765bb1f809dd502cfd85575286cea0ea6865e18d0b99b3aa6c4b",
+        "value_m": 2.008
+      },
+      "result_world_digest": "fe472bc49255ad7d58138e8adbb1b2697955025f8914215ea12e191084efbf4d",
+      "seq": 2,
+      "verification": {
+        "passed": true,
+        "results": [
+          {
+            "detail": "1 edges",
+            "invariant_id": "STRUCT-01",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "module"
+          },
+          {
+            "detail": "0 nodes",
+            "invariant_id": "STRUCT-02",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "spatial-tree"
+          },
+          {
+            "detail": "",
+            "invariant_id": "STRUCT-03",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "openings"
+          },
+          {
+            "detail": "",
+            "invariant_id": "GAUSS-01",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "belief"
+          },
+          {
+            "detail": "",
+            "invariant_id": "GAUSS-01",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "full"
+          },
+          {
+            "detail": "jitter=0",
+            "invariant_id": "GAUSS-02",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "belief"
+          },
+          {
+            "detail": "diag >= 0",
+            "invariant_id": "GAUSS-02",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "full"
+          },
+          {
+            "detail": "0 vars",
+            "invariant_id": "GAUSS-03",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "derived"
+          },
+          {
+            "detail": "",
+            "invariant_id": "CONS-01",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "nonneg"
+          },
+          {
+            "detail": "",
+            "invariant_id": "CONS-02",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "bounds"
+          },
+          {
+            "detail": "",
+            "invariant_id": "CONS-03",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "restatements"
+          },
+          {
+            "detail": "",
+            "invariant_id": "QTY-01",
+            "residual": 0.0,
+            "status": "PASS",
+            "subject": "rollups"
+          }
+        ]
+      },
+      "verification_digest": "0c21b53b83b5fa8ea5052f50d698594b8bb08ea1b8a7526f10a417cb49929cfb"
+    }
+  ],
+  "format": "gat-execution-ledger",
+  "integrity": {
+    "algorithm": "sha256",
+    "head": "feb5c7fea41700993ca8d1dd9480b5381e4863efd919ea60b15a91ded8b82e7c"
+  },
+  "runtime_contract": "gat-world-v1",
+  "schema_version": 1
+}
