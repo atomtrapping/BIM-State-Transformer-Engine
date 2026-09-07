@@ -531,6 +531,54 @@ the version itself unchanged, and a reader dispatching on `mode` cannot match
 a target by accident — targets carry no `mode` key. The tests pin both: the
 mode record's exact field set, and the target's.
 
+## Where this spec sits: a component's, not a system's
+
+This document describes the projection fabric of **one component**. The
+naming, first, because it collides: the engine is **BIM State Transformer**,
+`GAT` is its Gaussian Architectural Transformer core, and this package is
+that core. They are not interchangeable — the host consumes the engine, and
+the engine is more than this package.
+
+The host consumes it as a pinned local runtime, not as a peer: it verifies
+the engine's source against a recorded pin, spawns it under a timeout and a
+single runtime slot, bounds its input, and validates whatever comes back
+against a source-bound report contract. Everything the engine computes
+arrives there as a candidate with a receipt. **The engine computes belief;
+the corpus admits facts.** Nothing here writes a record.
+
+Three consequences for the surfaces described above.
+
+**The instruments have a horizon.** `gat report --html`, `gat workbench` and
+`gat view` are demonstration surfaces: how a human is shown what a record
+means before a host exists to render it. They are how these contracts were
+worked out, and they are not the destination. A component's durable
+interface is its records and its refusals.
+
+**Where the host says a thing differently, the host is canonical.** The same
+decision reaches two vocabularies — `RECOMMEND_MEASUREMENT` here,
+`MEASUREMENT_RECOMMENDED` there; `FIT` / `REJECT` here, `ACCEPT_FIT` /
+`REJECT_FIT` there. That is not two peer dialects to reconcile. The host's
+words win and these are recorded as aliases. Vocabulary verbatim still
+holds, and the two rules govern different fields: the canonical word is what
+a palette and an accent key on, the producer's word is what a surface
+prints, and a surface shows both when they differ, so the mapping is visible
+rather than hidden in an adapter.
+
+**A reservation here is a derivation record, not a claim on the host.** The
+`USD_STAGE` target above is stated in this repository because that is where
+it was worked out. Its home is the host's routing table, and content that
+exists only here has not landed — the three refusals this spec carries that
+the host's `usdProjection.ts` does not (a withdrawal blocked with its
+retraction beside it, an interval's two ends as authored claims,
+disagreement made findable rather than merely encoded) are owed to the host,
+not to this file.
+
+The engine's epistemic vocabulary meets the corpus's at the host boundary,
+where the mapping belongs: six `EvidenceKind` terms on one axis against
+three corpus axes, with `DERIVED` spelled the same in three places and
+meaning three things, and with `ASSUMED` and `SIMULATED` mapping to nothing
+at all because a value nothing witnessed cannot be graded as evidence.
+
 ## Non-goals
 
 The workbench adds no judgement of its own: no derived scores, no
