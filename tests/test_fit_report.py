@@ -295,6 +295,66 @@ class FitCalibrationReportTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "sigma must be positive"):
             report.decode_response(broken)
 
+    def _rows(self, decoded):
+        table = next(b for b in decoded.blocks if b.title == "residuals: predicted vs measured")
+        card = next(b for b in decoded.blocks if b.title == "residuals past the reader's threshold")
+        return table, card, dict(card.fields)
+
+    def test_a_residual_past_the_readers_threshold_is_marked_and_the_threshold_is_named(self) -> None:
+        # The live demo's third check sits at exactly three sigma; the other
+        # two do not. The threshold is the reader's because no held-out record
+        # declares one, and the card says so rather than implying the
+        # evaluator set it.
+        decoded = report.decode_response(coverage())
+        table, card, fields = self._rows(decoded)
+        self.assertEqual(list(table.accents), ["", "", "UNRESOLVED"])
+        self.assertEqual(fields["past it"], "1 of 3")
+        self.assertIn("the reader's, not declared by the record", fields["threshold"])
+        self.assertIn(">= 3", fields["threshold"])
+        self.assertIn("which of the two is wrong is not decided here", fields["what that says"])
+        self.assertEqual(card.accent, "UNRESOLVED")
+
+    def test_a_large_residual_is_never_a_decision_and_never_red(self) -> None:
+        # A residual says the prediction and the measurement disagree. It does
+        # not say which is wrong, so no magnitude earns the decision colour.
+        record = copy.deepcopy(coverage())
+        record["residuals"][0]["standardised_residual"] = -50.0
+        decoded = report.decode_response(record)
+        table, card, fields = self._rows(decoded)
+        self.assertEqual(list(table.accents), ["UNRESOLVED", "", "UNRESOLVED"])
+        self.assertEqual(fields["past it"], "2 of 3")
+        self.assertNotIn("VIOLATED", table.accents)
+        self.assertNotEqual(card.accent, "VIOLATED")
+        self.assertNotIn("VIOLATED", report.render_text(decoded))
+
+    def test_nothing_past_the_threshold_is_not_a_calibration_result(self) -> None:
+        record = copy.deepcopy(coverage())
+        for residual in record["residuals"]:
+            residual["standardised_residual"] = 2.9
+        decoded = report.decode_response(record)
+        table, card, fields = self._rows(decoded)
+        self.assertEqual(list(table.accents), ["", "", ""])
+        self.assertEqual(fields["past it"], "0 of 3")
+        self.assertIn("in-sample residuals never were one", fields["what that says"])
+        self.assertEqual(card.accent, "")
+
+    def test_the_report_says_the_posterior_is_not_where_disagreement_shows(self) -> None:
+        # Combining two disagreeing Gaussian measurements adds their
+        # precisions: the posterior narrows however far apart they are. A
+        # reader looking there for conflict finds the opposite of conflict,
+        # so the report says where to look instead.
+        decoded = report.decode_response(coverage())
+        note = next(n for n in decoded.notes if n == report.RESIDUAL_CHANNEL_NOTE)
+        self.assertIn("adds their precisions", note)
+        self.assertIn("more confident than either about a value neither declared", note)
+        self.assertIn("a narrow posterior is not evidence that the inputs agreed", note)
+        self.assertIn(note, report.render_text(decoded))
+        # A record whose residuals the reader does not recognise renders as
+        # emitted and claims nothing about a channel it did not read.
+        unknown = copy.deepcopy(coverage())
+        unknown["residuals"] = [{"whatever": 1.0}]
+        self.assertNotIn(report.RESIDUAL_CHANNEL_NOTE, report.decode_response(unknown).notes)
+
     def test_unknown_status_is_refused(self) -> None:
         with self.assertRaisesRegex(ValueError, "calibration status"):
             report.decode_response(dict(calibration(), status="CALIBRATED"))

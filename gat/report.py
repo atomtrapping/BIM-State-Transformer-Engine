@@ -167,6 +167,37 @@ def _margin_accent(p_violates: float, confidence: float) -> str:
     return ""
 
 
+#: The reader's threshold for calling a standardised residual large.  It is
+#: the reader's and not the record's: no held-out record declares one, and the
+#: card says so, the same way the method version is shown as the record
+#: declares it or as not declared at all.
+RESIDUAL_ATTENTION_Z = 3.0
+
+
+def _residual_accent(standardised: float) -> str:
+    """One tier, and never red.  A standardised residual past the threshold
+    says the prediction and the measurement disagree by more than the
+    declared sigma explains.  It does not say which of the two is wrong, so
+    it is never a decision and never takes the decision colour."""
+    return "UNRESOLVED" if abs(standardised) >= RESIDUAL_ATTENTION_Z else ""
+
+
+#: Why the residual table is where a disagreement shows, and the posterior is
+#: not.  Combining two disagreeing Gaussian measurements adds their
+#: precisions, so the posterior narrows however far apart they are and can end
+#: up more confident than either input about a value neither declared.  A
+#: reader who looks to the posterior sigma for conflict will find the opposite
+#: of conflict there.
+RESIDUAL_CHANNEL_NOTE = (
+    "A standardised residual is where a disagreement between the prediction "
+    "and a measurement is visible. It is not visible in the posterior: "
+    "combining two disagreeing Gaussian measurements adds their precisions, "
+    "so the posterior narrows however far apart they are, and can be more "
+    "confident than either about a value neither declared. The residual is "
+    "the channel; a narrow posterior is not evidence that the inputs agreed."
+)
+
+
 def _declared(value: object) -> str:
     """A record field shown verbatim; an absent or null value says so instead
     of rendering as an empty cell or a Python ``None``."""
@@ -1703,6 +1734,7 @@ def _fit_calibration_report(document: Mapping[str, object]) -> DecisionReport:
         if coverage_rows:
             blocks.append(Table(f"group {index + 1} coverage", ("nominal", "observed"), tuple(coverage_rows), tuple("" for _ in coverage_rows)))
     assessments: list[str] = []
+    residual_accents: list[str] = []
     if residuals:
         records = [_object(item, "residual") for item in residuals]
         if all(all(key in record for key in _RESIDUAL_KEYS) for record in records):
@@ -1737,12 +1769,34 @@ def _fit_calibration_report(document: Mapping[str, object]) -> DecisionReport:
                         format_number(standardised),
                     )
                 )
+                residual_accents.append(_residual_accent(standardised))
             blocks.append(
                 Table(
                     "residuals: predicted vs measured",
                     ("risk_id", "sample_id", "source_id", "predicted", "measured", "predictive sigma", "standardised_residual"),
                     tuple(rows),
-                    tuple("" for _ in rows),
+                    tuple(residual_accents),
+                )
+            )
+            flagged = sum(1 for accent in residual_accents if accent)
+            blocks.append(
+                Card(
+                    "residuals past the reader's threshold",
+                    (
+                        ("threshold", f"|standardised residual| >= {RESIDUAL_ATTENTION_Z:g}"
+                         " (the reader's, not declared by the record)"),
+                        ("past it", f"{flagged} of {len(rows)}"),
+                        (
+                            "what that says",
+                            "the prediction and the measurement disagree by more than the "
+                            "declared sigma explains; which of the two is wrong is not "
+                            "decided here"
+                            if flagged
+                            else "no residual reaches the threshold; that is not a "
+                            "calibration result, and in-sample residuals never were one",
+                        ),
+                    ),
+                    accent="UNRESOLVED" if flagged else "",
                 )
             )
         else:
@@ -1783,8 +1837,12 @@ def _fit_calibration_report(document: Mapping[str, object]) -> DecisionReport:
         disposition="UNVALIDATED" if status == "DESCRIPTIVE_EVALUATION" else status,
         subject="held-out calibration",
         subline=f"{FIT_CALIBRATION_FORMAT}: {len(groups)} groups, {len(residuals)} residuals",
-        notes=tuple(
-            _string(item, "limitation") for item in _array(document.get("limitations"), "limitations")
+        notes=(
+            *(
+                _string(item, "limitation")
+                for item in _array(document.get("limitations"), "limitations")
+            ),
+            *((RESIDUAL_CHANNEL_NOTE,) if residual_accents else ()),
         ),
         blocks=tuple(blocks),
         footers=(NON_AUTHORIZING_FOOTER, READ_ONLY_FOOTER),
