@@ -451,16 +451,22 @@ exactly from being confused with a scene that must compose honestly.
 | release | one sublayer, tagged with the release identifier and its digest |
 | as-of reading | the sublayer stack truncated after that release |
 | validity interval | time samples bounding the interval, held between them |
-| withdrawal | an authored value block in the withdrawing release's layer |
+| validity start | an authored time sample at the instant validity begins |
+| validity end | an authored value block at the instant validity ends |
+| withdrawal | an authored value block carrying the retraction record: who withdrew it, when, and what supersedes it |
 | disagreement | one prim per declaring source; never one composed value |
+| disagreement discovery | a named collection of the prims that disagree |
 | uncertainty | declared geometry on the prim, not metadata alone |
 | provenance and rights | custom metadata on every prim carrying a value |
 
 **Two clocks, two axes.** Knowledge time is the sublayer stack, in release
 order; an as-of reading is that stack truncated after a release. World time
 is the stage's time axis, carrying each quantity's validity. Both are
-expressible, and a stage carrying only one is refused: a consumer would
-otherwise read the time code as the only time there is.
+expressible, and a stage that does not declare which axis carries which is
+refused. The refusal targets ambiguity, not absence of dynamics: one release
+and one time sample is a static snapshot, which declares both axes and puts
+one value on each. What is refused is a stage a consumer would have to guess
+about, where the time code reads as the only time there is.
 
 ### The refusals, and the three that are not obvious
 
@@ -480,10 +486,26 @@ scenes and wrong for beliefs.
    corpus's strongest refusal read as its weakest statement. A withdrawn
    record is blocked in the withdrawing release's own layer.
 
-And the four that follow from doctrine already stated: two sources that
+Two and three are the same trap at both ends of an interval: `held`
+fabricates continuation from *within* it, and composition through silence
+fabricates it from *below*. So an interval's start and its end are authored
+opinions in their own right, not properties of the value between them. A
+value without an authored start, or an interval left to end in silence,
+states a duration no record declared.
+
+And a block is not enough on its own. It carries its reason — the retraction
+record, its knowledge instant, and what supersedes it — because a bare
+absence answers *what changed* and never *why*, which leaves a consumer
+reading geometry without testimony.
+
+And the rest follow from doctrine already stated: two sources that
 disagree are two prims, because USD resolves opinions to the strongest and
 the corpus does not resolve them at all, so one composed value would state an
-agreement no source declared; a quantity whose uncertainty the stage cannot
+agreement no source declared — and that disagreement must be *findable*, not
+merely encoded, because two prims at near-coincident positions are easy to
+miss and the corpus's most valuable layer does not get to hide inside the
+geometry, so the stage names the collection of prims that disagree; a
+quantity whose uncertainty the stage cannot
 carry is not emitted as geometry, because crisp geometry asserts a precision
 and USD has no native uncertainty; a prim path comes from the `EntityId`, so
 a renamed entity keeps its path and two entities never share one; and no

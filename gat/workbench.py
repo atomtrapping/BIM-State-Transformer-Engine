@@ -400,8 +400,16 @@ PROJECTION_TARGETS = (
             ("release", "one sublayer, tagged with the release identifier and its digest"),
             ("as-of reading", "the sublayer stack truncated after that release"),
             ("validity interval", "time samples bounding the interval, held between them"),
-            ("withdrawal", "an authored value block in the withdrawing release's layer"),
+            ("validity start", "an authored time sample at the instant validity begins; "
+             "the start is a claim in its own right, not a property of the value"),
+            ("validity end", "an authored value block at the instant validity ends; the "
+             "end is a claim too, and silence after it would compose from below"),
+            ("withdrawal", "an authored value block in the withdrawing release's layer, "
+             "carrying the retraction record: who withdrew it, at which knowledge "
+             "instant, and what supersedes it"),
             ("disagreement", "one prim per declaring source; never one composed value"),
+            ("disagreement discovery", "a named collection of the prims that disagree, so "
+             "a reader can ask where the scene disagrees with itself"),
             ("uncertainty", "declared geometry on the prim, not metadata alone"),
             ("provenance and rights", "custom metadata on every prim carrying a value"),
         ),
@@ -415,16 +423,29 @@ PROJECTION_TARGETS = (
             "A withdrawn record is blocked in the withdrawing release's layer. A "
             "withdrawal that merely stops being restated composes to the previous "
             "layer's value, which turns must not be relied on into unchanged.",
+            "The block carries its reason: the retraction record, its knowledge instant "
+            "and what supersedes it. A block without that shows an absence with no "
+            "testimony behind it, answering what changed and never why.",
+            "An interval's start and its end are authored opinions, not properties of "
+            "the value between them. A value without an authored start, or an interval "
+            "left to end in silence, states a duration no record declared.",
             "Two sources that disagree are two prims. USD resolves opinions to the "
             "strongest; the corpus does not resolve them at all, and one composed "
             "value would state an agreement no source declared.",
+            "Disagreement is findable, not merely present. Two prims at near-coincident "
+            "positions are easy to miss, so the stage names the collection of prims that "
+            "disagree; encoding disagreement without a way to ask for it hides the "
+            "corpus's most valuable layer inside its geometry.",
             "A quantity whose uncertainty the stage cannot carry is not emitted as "
             "geometry. Crisp geometry asserts a precision, and USD has no native "
             "uncertainty, so the encoding is declared or the prim is left out.",
             "A prim path is derived from the EntityId. A renamed entity keeps its "
             "path, and two entities never share one.",
-            "A stage carrying only one of the two clocks is refused. A consumer would "
-            "otherwise read the time code as the only time there is.",
+            "A stage that does not declare which axis carries which clock is refused. "
+            "One release and one time sample is not the refused case: a static snapshot "
+            "declares both axes and puts one value on each. What is refused is a stage a "
+            "consumer must guess about, where the time code reads as the only time "
+            "there is.",
             "No candidate enters the stack. An unadmitted extraction is not a weak "
             "opinion; it is not an opinion.",
         ),

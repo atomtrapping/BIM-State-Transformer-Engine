@@ -212,7 +212,7 @@ class ProjectionTargetTests(unittest.TestCase):
         self.assertIn("validity", target.world_time)
         self.assertNotEqual(target.knowledge_time, target.world_time)
         refusals = " ".join(target.refusals)
-        self.assertIn("only one of the two clocks is refused", refusals)
+        self.assertIn("does not declare which axis carries which clock", refusals)
 
     def test_every_refusal_is_a_check_on_an_emitted_artifact(self) -> None:
         refusals = " ".join(self.target().refusals)
@@ -230,6 +230,45 @@ class ProjectionTargetTests(unittest.TestCase):
         self.assertIn("not emitted as geometry", refusals)
         self.assertIn("path is derived from the EntityId", refusals)
         self.assertIn("No candidate enters the stack", refusals)
+
+    def test_an_interval_is_two_claims_and_not_a_property_of_its_value(self) -> None:
+        # Held fabricates continuation from within the interval; silence at the
+        # end fabricates it from below. Both ends of an interval are opinions.
+        target = self.target()
+        mapping = dict(target.mapping)
+        self.assertIn("claim in its own right", mapping["validity start"])
+        self.assertIn("compose from below", mapping["validity end"])
+        refusals = " ".join(target.refusals)
+        self.assertIn("start and its end are authored opinions", refusals)
+        self.assertIn("states a duration no record declared", refusals)
+
+    def test_a_block_carries_its_reason_so_absence_has_testimony(self) -> None:
+        target = self.target()
+        self.assertIn("retraction record", dict(target.mapping)["withdrawal"])
+        refusals = " ".join(target.refusals)
+        self.assertIn("block carries its reason", refusals)
+        self.assertIn("what supersedes it", refusals)
+        self.assertIn("answering what changed and never why", refusals)
+
+    def test_disagreement_is_findable_and_not_only_encoded(self) -> None:
+        # Two prims at near-coincident positions are easy to miss; the corpus's
+        # most valuable layer does not get to hide inside the geometry.
+        target = self.target()
+        self.assertIn("disagreement discovery", [row[0] for row in target.mapping])
+        self.assertIn("disagrees with itself", dict(target.mapping)["disagreement discovery"])
+        refusals = " ".join(target.refusals)
+        self.assertIn("Disagreement is findable, not merely present", refusals)
+        self.assertIn("hides the corpus's most valuable layer", refusals)
+
+    def test_the_clock_refusal_targets_ambiguity_and_not_absence_of_dynamics(self) -> None:
+        # One release and one time sample is a static snapshot, not a stage
+        # missing a clock: it declares both axes and puts one value on each.
+        # What is refused is a stage a consumer would have to guess about.
+        refusals = " ".join(self.target().refusals)
+        self.assertIn("does not declare which axis carries which clock", refusals)
+        self.assertIn("One release and one time sample is not the refused case", refusals)
+        self.assertIn("static snapshot", refusals)
+        self.assertIn("consumer must guess about", refusals)
 
     def test_the_mapping_is_data_with_one_row_per_concept(self) -> None:
         target = self.target()
