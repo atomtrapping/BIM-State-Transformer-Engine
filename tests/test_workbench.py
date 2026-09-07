@@ -25,7 +25,10 @@ from gat.workbench import (
     MESSAGE_FORMAT,
     MODES,
     PROJECTION_SPEC_VERSION,
+    PROJECTION_TARGETS,
+    RESERVED,
     UNAVAILABLE,
+    USD_CARRIER_IS_NOT_A_SCENE,
     WORKBENCH_FORMAT,
     export_workbench_html,
     graph_payload,
@@ -178,6 +181,99 @@ class ProjectionSpecTests(unittest.TestCase):
         )
 
 
+class ProjectionTargetTests(unittest.TestCase):
+    """A target is where a projection goes when the surface is another
+    program.  It is declared as data before anything writes one."""
+
+    def target(self, name: str = "USD_STAGE"):
+        return next(t for t in PROJECTION_TARGETS if t.target == name)
+
+    def test_a_target_is_reserved_until_what_it_needs_exists(self) -> None:
+        target = self.target()
+        self.assertEqual(target.availability, RESERVED)
+        self.assertTrue(target.reason)
+        self.assertTrue(target.blocked_on)
+        for blocker in target.blocked_on:
+            self.assertTrue(blocker.strip())
+        joined = " ".join(target.blocked_on)
+        # Each blocker names something that does not exist, not a preference.
+        self.assertIn("uncertainty into a prim", joined)
+        self.assertIn("no CRS", joined)
+        self.assertIn("release identifier and digest", joined)
+        self.assertIn("second release to stack", joined)
+
+    def test_the_two_clocks_are_carried_on_different_axes_and_both_are_named(self) -> None:
+        # A target with one time axis will be read as having one clock unless
+        # it says which axis carries which.
+        target = self.target()
+        self.assertIn("sublayer stack", target.knowledge_time)
+        self.assertIn("truncated", target.knowledge_time)
+        self.assertIn("time axis", target.world_time)
+        self.assertIn("validity", target.world_time)
+        self.assertNotEqual(target.knowledge_time, target.world_time)
+        refusals = " ".join(target.refusals)
+        self.assertIn("only one of the two clocks is refused", refusals)
+
+    def test_every_refusal_is_a_check_on_an_emitted_artifact(self) -> None:
+        refusals = " ".join(self.target().refusals)
+        # USD interpolates linearly by default; a linear reading between two
+        # declarations is a measurement nothing declared.
+        self.assertIn("interpolation is not held is refused", refusals)
+        # Held carries the last value forward, so an unbacked interval is a block.
+        self.assertIn("value block, never a held sample", refusals)
+        # A withdrawal that merely stops being restated composes to the old value.
+        self.assertIn("turns must not be relied on into unchanged", refusals)
+        # USD resolves opinions; the corpus does not resolve them at all.
+        self.assertIn("Two sources that disagree are two prims", refusals)
+        self.assertIn("agreement no source declared", refusals)
+        # Crisp geometry asserts a precision the corpus may not hold.
+        self.assertIn("not emitted as geometry", refusals)
+        self.assertIn("path is derived from the EntityId", refusals)
+        self.assertIn("No candidate enters the stack", refusals)
+
+    def test_the_mapping_is_data_with_one_row_per_concept(self) -> None:
+        target = self.target()
+        concepts = [row[0] for row in target.mapping]
+        self.assertEqual(len(concepts), len(set(concepts)))
+        for row in target.mapping:
+            self.assertEqual(len(row), 2)
+            self.assertTrue(row[0] and row[1])
+        for concept in ("entity", "quantity", "release", "as-of reading",
+                        "withdrawal", "disagreement", "uncertainty"):
+            self.assertIn(concept, concepts)
+        self.assertIn("truncated", dict(target.mapping)["as-of reading"])
+
+    def test_a_target_reads_as_a_target_and_never_as_a_mode(self) -> None:
+        # gat-projection-spec-v1 is the contract every surface reads, so a
+        # target is added without touching it: same version, and a reader
+        # dispatching on "mode" can never match a target by accident.
+        record = self.target().to_dict()
+        self.assertEqual(record["version"], PROJECTION_SPEC_VERSION)
+        self.assertIs(record["mutates_source"], False)
+        self.assertNotIn("mode", record)
+        self.assertEqual(
+            set(record),
+            {"version", "target", "consumer", "question", "surface_class", "source",
+             "transformation", "meaning", "loss", "identity", "frame", "metric",
+             "knowledge_time", "world_time", "mapping", "refusals", "availability",
+             "reason", "blocked_on", "mutates_source"},
+        )
+        # The declared fields survive JSON without becoming prose.
+        again = json.loads(json.dumps(record))
+        self.assertEqual(again["mapping"][0], list(self.target().mapping[0]))
+        self.assertEqual(len(again["refusals"]), len(self.target().refusals))
+
+    def test_the_carrier_is_not_the_scene(self) -> None:
+        # gat.adapters.openusd already writes a stage. It is safe because it
+        # asks USD to resolve nothing; a composed scene asks it to resolve
+        # everything, so the two are separate artifacts.
+        self.assertIn("/GAT/State", USD_CARRIER_IS_NOT_A_SCENE)
+        self.assertIn("/GAT/View", USD_CARRIER_IS_NOT_A_SCENE)
+        self.assertIn("no sublayer stack", USD_CARRIER_IS_NOT_A_SCENE)
+        self.assertIn("resolve nothing", USD_CARRIER_IS_NOT_A_SCENE)
+        self.assertIn("different artifact", USD_CARRIER_IS_NOT_A_SCENE)
+
+
 class GraphPayloadTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -309,6 +405,12 @@ class WorkbenchDocumentTests(unittest.TestCase):
         self.assertEqual(self.payload["decision"]["disposition"], "REJECT")
         self.assertEqual(self.payload["decision"]["subjects"], ["Wall-Party"])
         self.assertEqual(self.payload["structure"]["world_digest"], self.world.digest())
+        # Targets ride beside the modes, and adding one changed no mode.
+        self.assertEqual([t["target"] for t in self.payload["targets"]],
+                         [t.target for t in PROJECTION_TARGETS])
+        self.assertEqual([m["mode"] for m in self.payload["modes"]], list(MODES))
+        self.assertTrue(all(t["availability"] == RESERVED for t in self.payload["targets"]))
+        self.assertTrue(all("mode" not in t for t in self.payload["targets"]))
 
     def test_document_is_one_offline_file(self) -> None:
         self.assertTrue(self.html.startswith("<!doctype html>"))

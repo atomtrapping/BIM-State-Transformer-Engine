@@ -321,6 +321,152 @@ def projection_specs(
     )
 
 
+RESERVED = "reserved"  # the target is defined here; what it needs does not exist yet
+
+
+@dataclass(frozen=True)
+class ProjectionTarget:
+    """Where a projection is written when the surface is another program
+    rather than a screen.
+
+    Same grammar as a :class:`ProjectionSpec` — source, transformation,
+    meaning, loss, identity, frame, metric — with the two clocks named
+    separately, because a target with one time axis will otherwise be read
+    as having one clock.  The mapping into the target's own vocabulary is
+    data, one row per mapped concept, and every refusal is a check that
+    must hold of an emitted artifact.  A target is reserved until the
+    things in ``blocked_on`` exist; nothing is emitted from a reservation.
+    """
+
+    target: str
+    consumer: str
+    question: str
+    surface_class: str
+    source: str
+    transformation: str
+    meaning: str
+    loss: str
+    identity: str
+    frame: str
+    metric: str
+    #: How each clock is carried in the target's own axes, named separately.
+    knowledge_time: str
+    world_time: str
+    #: corpus concept -> target concept.
+    mapping: tuple[tuple[str, str], ...]
+    #: Checks on an emitted artifact.  Each is a refusal when it does not hold.
+    refusals: tuple[str, ...]
+    availability: str
+    reason: str
+    #: What must exist before this target can stop being reserved.
+    blocked_on: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, object]:
+        payload = asdict(self)
+        payload["mapping"] = [list(row) for row in self.mapping]
+        payload["refusals"] = list(self.refusals)
+        payload["blocked_on"] = list(self.blocked_on)
+        return {"version": PROJECTION_SPEC_VERSION, **payload, "mutates_source": False}
+
+
+#: Targets are additive: a new one is declared here and changes no mode.
+#: ``gat-projection-spec-v1`` is the contract every surface reads, so it is
+#: versioned like an ABI — a target may be added, never at the cost of a
+#: field an existing reader depends on.
+PROJECTION_TARGETS = (
+    ProjectionTarget(
+        target="USD_STAGE",
+        consumer="an OpenUSD consumer: a renderer, a simulator, another authoring tool",
+        question="What did this corpus hold, as a scene another program can compose?",
+        surface_class="interchange artifact (not a screen, not a carrier)",
+        source="the admitted state of one or more corpus releases",
+        transformation="entities and their quantities lowered to prims and attributes, "
+        "one sublayer per release, composed by the consumer's own USD runtime",
+        meaning="a scene that states what the corpus admitted, at a named knowledge "
+        "instant, about a named world instant — and states nothing else",
+        loss="a composed stage carries the values and not the reasoning: the factors, "
+        "the posterior and the decision that produced a quantity do not survive "
+        "into a prim, and a consumer reading only the stage cannot re-derive them",
+        identity="prim path from the EntityId; the release digest on its own layer",
+        frame="the declared model frame; no CRS, so no georeferenced placement",
+        metric="Euclidean in the declared model frame; USD states no distance of its own",
+        knowledge_time="the sublayer stack, one layer per release in release order; "
+        "an as-of reading is the stack truncated after that release",
+        world_time="the stage time axis, carrying each quantity's validity",
+        mapping=(
+            ("entity", "prim at a path derived from the EntityId, never from a display name"),
+            ("quantity", "time-sampled attribute on the world-time axis"),
+            ("relationship", "USD relationship carrying the asserting record's id"),
+            ("release", "one sublayer, tagged with the release identifier and its digest"),
+            ("as-of reading", "the sublayer stack truncated after that release"),
+            ("validity interval", "time samples bounding the interval, held between them"),
+            ("withdrawal", "an authored value block in the withdrawing release's layer"),
+            ("disagreement", "one prim per declaring source; never one composed value"),
+            ("uncertainty", "declared geometry on the prim, not metadata alone"),
+            ("provenance and rights", "custom metadata on every prim carrying a value"),
+        ),
+        refusals=(
+            "A stage whose interpolation is not held is refused. USD interpolates time "
+            "samples linearly by default, and a linear reading between two declared "
+            "values is a measurement no source ever declared.",
+            "An interval no record backs is an authored value block, never a held "
+            "sample. Held carries the last value forward, which would state that a "
+            "declaration continued after it stopped.",
+            "A withdrawn record is blocked in the withdrawing release's layer. A "
+            "withdrawal that merely stops being restated composes to the previous "
+            "layer's value, which turns must not be relied on into unchanged.",
+            "Two sources that disagree are two prims. USD resolves opinions to the "
+            "strongest; the corpus does not resolve them at all, and one composed "
+            "value would state an agreement no source declared.",
+            "A quantity whose uncertainty the stage cannot carry is not emitted as "
+            "geometry. Crisp geometry asserts a precision, and USD has no native "
+            "uncertainty, so the encoding is declared or the prim is left out.",
+            "A prim path is derived from the EntityId. A renamed entity keeps its "
+            "path, and two entities never share one.",
+            "A stage carrying only one of the two clocks is refused. A consumer would "
+            "otherwise read the time code as the only time there is.",
+            "No candidate enters the stack. An unadmitted extraction is not a weak "
+            "opinion; it is not an opinion.",
+        ),
+        availability=RESERVED,
+        reason="Nothing emits this target. It is declared so that the surfaces, the "
+        "engine and a consumer agree what it would have to mean before anything "
+        "writes one.",
+        blocked_on=(
+            "A released convention for carrying uncertainty into a prim. "
+            "gat-opening-fit-v1 carries pose sigmas per body; nothing binds them to "
+            "geometry, and a stage without that binding would render a precision the "
+            "corpus does not hold.",
+            "A geodetic frame in the IR. The lowered world declares a model frame and "
+            "no CRS, so a consumer expecting a georeferenced stage would be reading a "
+            "placement that is not there.",
+            "A release identifier and digest the layer can carry, so that truncating "
+            "the stack is a stated as-of reading rather than a file-ordering accident.",
+            "A second release to stack. One release is one layer, and a stack of one "
+            "demonstrates none of the composition this target exists to define.",
+        ),
+    ),
+)
+
+#: The carrier is not this target, and the distinction is the point.
+#: ``gat.adapters.openusd`` already writes a USD stage: ``/GAT/State`` holds
+#: the snapshot and ledger as prims, relationships and numeric arrays, and
+#: ``/GAT/View`` holds disposable derived geometry.  It is safe precisely
+#: because it never asks USD to resolve opinions — it round-trips one world
+#: at one digest, and composition decides nothing.  A scene target is the
+#: other thing: many releases, composed by the consumer, where composition
+#: decides everything.  Reserving it separately keeps a carrier that must
+#: round-trip exactly from being confused with a scene that must compose
+#: honestly.
+USD_CARRIER_IS_NOT_A_SCENE = (
+    "gat.adapters.openusd writes /GAT/State as an exact carrier of one world "
+    "and /GAT/View as derived geometry; it uses no sublayer stack, no time "
+    "samples and no value blocks, and asks USD to resolve nothing. The "
+    "USD_STAGE target is a composed scene over several releases and is a "
+    "different artifact with different refusals."
+)
+
+
 def graph_payload(world: World) -> dict[str, object]:
     """The relationship graph with a deterministic reading-order layout.
 
@@ -472,6 +618,7 @@ def workbench_payload(
         "world_digest": world.digest(),
         "rules": list(_RULES),
         "modes": [spec.to_dict() for spec in specs],
+        "targets": [target.to_dict() for target in PROJECTION_TARGETS],
         "structure": scene,
         "graph": graph_payload(world),
         "state": state_payload(world),
@@ -618,6 +765,10 @@ def render_workbench_html(
     )
     rules = " · ".join(esc(rule) for rule in payload["rules"])
     specs_json = esc(json.dumps(payload["modes"], indent=1))
+    targets_json = esc(json.dumps(payload["targets"], indent=1))
+    reserved = ", ".join(
+        f"{target['target']} ({target['availability']})" for target in payload["targets"]
+    )
     title = esc(payload["model"] or "workbench")
     return (
         "<!doctype html>\n"
@@ -646,6 +797,10 @@ def render_workbench_html(
         f"<p>{rules}</p>"
         f"<details><summary>ProjectionSpec ({esc(PROJECTION_SPEC_VERSION)}) for every mode"
         f"</summary><pre>{specs_json}</pre></details>"
+        f"<details><summary>Projection targets — written to another program, "
+        f"not to a screen: {esc(reserved)}</summary>"
+        f"<p>{esc(USD_CARRIER_IS_NOT_A_SCENE)}</p>"
+        f"<pre>{targets_json}</pre></details>"
         "</footer>\n"
         "</div>\n"
         f'<script id="workbench-data" type="application/json">{encoded}</script>\n'

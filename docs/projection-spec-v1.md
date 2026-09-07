@@ -416,6 +416,99 @@ a baseline compared with one doorway or partition change; the plan and the
 graph with synchronized selection; and any movement interpretation compared
 against observations or a practitioner's review.
 
+## Reserved: a USD stage, and why it is a target rather than a mode
+
+The eight modes are seats: a person sits at one and reads. A **target** is
+where a projection goes when the surface is another program. Same grammar —
+source, transformation, meaning, loss, identity, frame, metric — with the two
+clocks named separately, because a target with one time axis is read as
+having one clock unless it says which axis carries which. Targets are
+declared as data in `PROJECTION_TARGETS`, beside the modes and never inside
+them.
+
+`USD_STAGE` is the first, and it is **reserved**: nothing emits it. It is
+written down so the surfaces, the engine and a consumer agree what it would
+have to mean before anything writes one.
+
+### The carrier already exists, and it is not this
+
+`gat.adapters.openusd` writes a USD stage today: `/GAT/State` carries the
+snapshot and the ledger as prims, relationships and numeric arrays, and
+`/GAT/View` carries disposable derived geometry. It is safe precisely
+because it asks USD to resolve nothing — it round-trips one world at one
+digest, and composition decides nothing. A scene target is the other thing:
+several releases, composed by the consumer, where composition decides
+everything. Keeping them separate keeps a carrier that must round-trip
+exactly from being confused with a scene that must compose honestly.
+
+### The mapping
+
+| Corpus | USD |
+|---|---|
+| entity | prim at a path derived from the `EntityId`, never from a display name |
+| quantity | time-sampled attribute on the world-time axis |
+| relationship | USD relationship carrying the asserting record's id |
+| release | one sublayer, tagged with the release identifier and its digest |
+| as-of reading | the sublayer stack truncated after that release |
+| validity interval | time samples bounding the interval, held between them |
+| withdrawal | an authored value block in the withdrawing release's layer |
+| disagreement | one prim per declaring source; never one composed value |
+| uncertainty | declared geometry on the prim, not metadata alone |
+| provenance and rights | custom metadata on every prim carrying a value |
+
+**Two clocks, two axes.** Knowledge time is the sublayer stack, in release
+order; an as-of reading is that stack truncated after a release. World time
+is the stage's time axis, carrying each quantity's validity. Both are
+expressible, and a stage carrying only one is refused: a consumer would
+otherwise read the time code as the only time there is.
+
+### The refusals, and the three that are not obvious
+
+A composed stage is the easiest place in this system to render a confidence
+the corpus does not hold, because USD's defaults are all reasonable for
+scenes and wrong for beliefs.
+
+1. **USD interpolates time samples linearly by default.** A linear reading
+   between two declared values is a measurement no source ever declared. A
+   stage whose interpolation is not `held` is refused.
+2. **`held` is not enough.** It carries the last value forward, so an
+   interval no record backs would state that a declaration continued after it
+   stopped. An unbacked interval is an authored value block, never a held
+   sample.
+3. **A withdrawal that merely stops being restated composes to the previous
+   layer's value.** That turns *must not be relied on* into *unchanged* — the
+   corpus's strongest refusal read as its weakest statement. A withdrawn
+   record is blocked in the withdrawing release's own layer.
+
+And the four that follow from doctrine already stated: two sources that
+disagree are two prims, because USD resolves opinions to the strongest and
+the corpus does not resolve them at all, so one composed value would state an
+agreement no source declared; a quantity whose uncertainty the stage cannot
+carry is not emitted as geometry, because crisp geometry asserts a precision
+and USD has no native uncertainty; a prim path comes from the `EntityId`, so
+a renamed entity keeps its path and two entities never share one; and no
+candidate enters the stack, because an unadmitted extraction is not a weak
+opinion, it is not an opinion.
+
+### What blocks it
+
+A released convention for carrying uncertainty into a prim (`gat-opening-fit-v1`
+carries pose sigmas per body; nothing binds them to geometry). A geodetic
+frame in the IR — the lowered world declares a model frame and no CRS. A
+release identifier and digest the layer can carry, so truncating the stack is
+a stated as-of reading rather than a file-ordering accident. And a second
+release to stack: one release is one layer, and a stack of one demonstrates
+none of the composition this target exists to define.
+
+### Additive, and versioned like an ABI
+
+`gat-projection-spec-v1` is the contract every surface reads, so it is
+versioned like an ABI: a target may be added, never at the cost of a field an
+existing reader depends on. Adding `USD_STAGE` left every mode's fields and
+the version itself unchanged, and a reader dispatching on `mode` cannot match
+a target by accident — targets carry no `mode` key. The tests pin both: the
+mode record's exact field set, and the target's.
+
 ## Non-goals
 
 The workbench adds no judgement of its own: no derived scores, no
