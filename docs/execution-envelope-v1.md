@@ -58,6 +58,41 @@ runtime. It does not prove every matrix operation, hardware dispatch, thread
 configuration, future observation update or third-party binary reproducible.
 Same-environment continuation and broader invariants remain separately tested.
 
+## What a consumer must carry
+
+The sections above address an operator setting up a host. A consumer that
+embeds GAT as a pinned runtime has the same problem through a narrower opening:
+it records some facts about the execution and drops the rest, and whatever it
+drops is what its own replay claim is not evidenced by.
+
+`gat.runtime_diagnostics.REPLAY_CRITICAL` names the thirteen dotted paths that
+decide the bytes, and `dropped_by(carried)` answers what a given boundary loses.
+The producer names them because the producer is what watched them matter: this
+repository has seen Haswell and Sandybridge dispatch give byte-identical derived
+means and different covariance bytes from the same inputs. A Python and NumPy
+version pair does not describe an envelope, and a boundary carrying only those
+has kept the facts that are easy to serialise and dropped the one the finding
+was about.
+
+`replay_critical_facts()` reports an unrecorded control as `None` rather than
+omitting the key. An unset control is not a default control — it means the host
+took whatever dispatch it found, which is exactly the condition under which the
+covariance bytes moved — and a shape that omits it leaves a consumer unable to
+tell an unset control from one nobody looked for.
+
+The observed instance: Payload OS pins this engine as a local runtime and its
+`GatRuntimeIdentity` carries the engine commit, source tree digest, adapter
+version, Python version, NumPy version, platform and architecture. Nine of the
+thirteen replay-critical facts do not cross, including both library builds and
+all five controls. Its grader marks such a run `REPLAYABLE_HERE`, which is
+right about the arithmetic and unevidenced about the word *here*: nothing in the
+receipt says which envelope that was. Its `src/gat/crossing.ts` records the drop
+against this list rather than repairing it, and the two sides now name the same
+facts, which is what makes the gap measurable instead of arguable.
+
+Nothing here fixes that boundary. A producer can say which facts matter; it
+cannot reach into a shape somebody else declared.
+
 ## Preserved identity and refusal
 
 No historical fixture, snapshot schema, ledger event, world hash algorithm or
