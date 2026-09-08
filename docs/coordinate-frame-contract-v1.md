@@ -77,6 +77,94 @@ and nonlinear confidence coverage require separate methods and qualification.
 Exact nested placements are supported; do not treat several uncertain
 ancestors as independent without an explicit joint model.
 
+## Where the frame sits on the earth
+
+`gat.geometry.frames` is mathematics: rigid transforms and a validated tree,
+with no earth in it and no evidence. That boundary is kept. A vertical datum is
+not mathematics — it is a declaration about what a height is measured from —
+and a geodetic anchor is evidence about where a frame's origin stands on the
+planet. Both live in `gat.geometry.datum` under `gat-geodetic-anchor-v1`, beside
+the frame graph, and meet it by frame identifier and nothing else.
+
+They are declared before any anchor exists, on purpose. The workbench already
+refuses MAP and GLOBE because no `IfcSite` placement, `IfcMapConversion` or CRS
+reaches the IR, and an invented position would be visual adjacency presented as
+evidence. That refusal was correct and it was also permanent by omission:
+nothing an operator could supply, however well surveyed, would have lifted it.
+This contract is the object a properly evidenced anchor would be, so the
+refusal becomes conditional and the condition is written down.
+
+**Three kinds and no member for "unknown."** `ELLIPSOIDAL` is height above a
+reference ellipsoid, which is what GNSS produces. `ORTHOMETRIC` is height above
+a named geoid model, which is what a survey or a map means by level.
+`LOCAL_ENGINEERING` is a project zero — a finished floor level, a site benchmark
+— which is what an IFC almost always carries. An unknown datum is the absence of
+an anchor, not a value in the vocabulary; a member for it would let a height
+with no declared origin travel through every later join looking like one that
+had a declared origin. A reference surface is required on all three, because
+"orthometric" without a geoid model names a family of surfaces that differ from
+each other by metres.
+
+**A local datum anchors and does not join vertically.** A building whose plan
+position is surveyed and whose heights are relative to its own slab is a real,
+common and well-understood object, so it is not refused. What it does not have
+is any relation between those heights and anybody else's, and
+`vertical_join_available` says so rather than letting the height pass as an
+earth height. Horizontal and vertical standing are reported separately for that
+reason: one verdict for both would either forbid a sound join or allow an
+unsound one.
+
+**The transform is an object, not a subtraction.** Ellipsoidal and orthometric
+heights differ by the geoid undulation `N`, and `h = H + N`. `N` is a field, not
+a constant. A `GeoidSeparation` therefore carries the model that produced it,
+the point where it was evaluated, a declared validity radius and its own
+evidence; the conversion refuses when the model does not match the orthometric
+datum's reference, when the point lies outside the declared radius, or when no
+separation is supplied at all. A local engineering datum converts to nothing:
+the relation between a floor slab and the earth is established by a levelling
+run to a benchmark, and inventing it is the failure this refuses.
+
+**The anchor may not come from the model, and may not come without sigma.**
+`scan_likelihood` already refuses to let registration supply the pose used to
+claim the model's dimensions are wrong; an anchor inferred from the geometry it
+places closes the same circle at a larger radius, so `MODEL_DERIVED` and
+`INFERRED_FROM_CONTEXT` are inadmissible. Both sigmas are required and positive,
+because the consumer that indexes geodetic positions gives no key at all to a
+position with no stated uncertainty — refusing here makes the failure loud at
+the producer instead of quiet one system downstream.
+
+### The metric, and the choice that was wrong first
+
+The validity-radius check measures arcs on a sphere of the WGS84 **polar radius
+of curvature**, `a²/b` ≈ 6 399 593.63 m, because that is the largest principal
+radius of curvature anywhere on the ellipsoid and the arc therefore over-states
+the true geodesic separation. A point marginally inside a declared radius may be
+refused; one outside it is never accepted. Fail-closed on the metric as well as
+on the declaration.
+
+The semi-major axis is the intuitive choice and it is wrong. A sphere of radius
+`a` *under*-states east-west separations at high latitude, where the prime
+vertical radius of curvature exceeds `a`: at 80° south a 0.2° east-west pair
+measures 3 866 m against a 3 879 m geodesic. An under-stated distance accepts a
+separation that has travelled outside the range it was declared good for, which
+is the exact failure the radius exists to prevent. The bound is verified
+numerically against a Vincenty inverse over ~12 500 sampled pairs in
+`tests/test_datum.py` rather than argued for in prose, because prose is what got
+it wrong the first time. It is tight at the pole, where the prime vertical
+radius of curvature equals `a²/b`.
+
+This is not geodesy and is not offered as any. It answers one question: is this
+point further from that one than somebody declared their number good for.
+
+### What this does not do
+
+It does not lower `IfcSite`, `IfcMapConversion` or `IfcProjectedCRS`; nothing
+reads a georeference out of a model, which is what keeps `MODEL_DERIVED`
+unreachable rather than merely forbidden. It does not lift the workbench's MAP
+and GLOBE refusals — teaching those surfaces to accept an anchor is separate
+work, and doing half of it would leave a surface that draws a position under
+conditions nobody stated. It holds no geoid model and computes no undulation.
+
 ## Qualification evidence and remaining gates
 
 The synthetic tests check:
