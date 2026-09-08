@@ -1,4 +1,9 @@
-"""GAT — a decision-focused, uncertainty-aware BIM state engine.
+"""GAT — the Gaussian Architectural Transformer, the computational core of
+the BIM State Transformer engine.
+
+    The engine is BIM State Transformer; GAT is its core, and this package
+    is that core.  The names are not interchangeable: the host consumes the
+    engine, and the engine is more than this module.
 
     Design intent + evidence + criteria -> auditable architectural belief
         -> decision or next evidence -> propagated, verified state

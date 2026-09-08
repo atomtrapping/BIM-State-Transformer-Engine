@@ -22,8 +22,11 @@ palette source). A lockstep test keeps the two palettes bit-identical.
    in words only (ASCII, no ANSI colour — stable in logs and CI). GUI and
    HTML surfaces add colour as reinforcement; a colour-blind reader loses
    nothing.
-4. **Red is a decision, not a malfunction.** A refused or failed request is
-   grey (`ERROR`), so red keeps meaning "the engine decided: stop".
+4. **Red is a decision, not a malfunction — and not uncertainty.** A
+   refused or failed request is grey (`ERROR`), so red keeps meaning "the
+   engine decided: stop". A probability between the decision thresholds
+   (not confidently cleared, not confidently violated) renders `UNRESOLVED`
+   amber, never red: only `P(violates) ≥ confidence` earns `VIOLATED`.
 5. **Reports are inert artifacts; instruments are self-contained.** Human
    surfaces come in two classes. *Reports* (decision pages, timelines,
    audits) carry no scripts and fetch nothing; interactivity is native
@@ -48,7 +51,7 @@ RGBA values are linear floats; hex values are their 8-bit form.
 | proceed | `ACCEPT`, `SATISFIED`, `ADMISSIBLE`, `PASS`, `READY` | (0.10, 0.70, 0.20, 1.0) | `#1ab233` |
 | stop | `REJECT`, `VIOLATED`, `BLOCKED`, `FAIL` | (0.85, 0.08, 0.08, 1.0) | `#d91414` |
 | attention | `REQUEST_EVIDENCE`, `UNRESOLVED`, `WARN`, `NEEDS_GEOMETRY_DERIVATION`, `MISSING_SOURCE_DATA` | (0.95, 0.55, 0.05, 1.0) | `#f28c0d` |
-| undecided | `ERROR`, `NOT_RUN` | (0.35, 0.35, 0.35, 1.0) | `#595959` |
+| undecided | `ERROR`, `NOT_RUN`, `UNVALIDATED`, `NO_MEASUREMENTS` | (0.35, 0.35, 0.35, 1.0) | `#595959` |
 
 The six terms shared with the Blender panel (`ACCEPT`, `REJECT`,
 `REQUEST_EVIDENCE`, `SATISFIED`, `VIOLATED`, `UNRESOLVED`) must stay
@@ -138,8 +141,9 @@ first instances of those modes over one engine, and should be read as such:
 `gat workbench` composes all eight behind one mode toolbar in one offline
 file, with a single selection identity (`EntityId`) shared by every mode
 and a `ProjectionSpec` per mode that states its source, transformation,
-meaning, information loss, identity, frame and time. The contract is
-`docs/projection-spec-v1.md`.
+meaning, information loss, identity, frame, distance model and time —
+coordinates describe positions; the declared metric decides what a distance
+means. The contract is `docs/projection-spec-v1.md`.
 
 Three rules carry across every mode: projection never mutates its source;
 identity survives representation (the same digest names the same world in
@@ -159,6 +163,73 @@ assurance flags render `no` in plain sight and audit statuses like
 * `gat report response.json --html -o report.html` — the same content as a
   self-contained, script-free HTML page for sharing and archiving, e.g.
   `gat-headless request.json | gat report - --html -o decision.html`.
+* `gat report prediction.json [--html]` — an opening-fit prediction
+  (`gat-opening-fit-v1`), laid out to answer why it passed, failed or asked
+  for evidence. The headline is the *field acceptance* (`REQUEST_EVIDENCE`
+  until measurements exist), never the model's prediction, which appears as
+  a badged card. *Controlling clearance* names the margin the prediction
+  turns on — highest `P(violates)`, ties broken by the smallest margin, the
+  rule printed on the card — with its quantity class, frame, mean ± sigma
+  and probability, accented by the two tiers (`VIOLATED` only when
+  `P(violates) ≥ confidence`, `UNRESOLVED` when it merely cannot be cleared
+  at the stated confidence, nothing below); the tightest margin is named
+  beside it when it differs, so the truncated margins table can never hide
+  either. *Calibration* carries the status (`UNVALIDATED`). *Evidence still
+  missing* (titled *evidence* unless the acceptance is `REQUEST_EVIDENCE`)
+  reads from the record what the margins rest on — the five bound
+  dimensions, the pose bodies and their assumption id, the count of
+  in-sample factors — and states that the record carries no evidence
+  receipt; nothing on it is inferred. *Binding* names the opening and
+  assembly, their frames and the frame chains walked to the root
+  (`opening -> storey -> model`); a bound frame that is not declared, a
+  chain that cycles or a frame declared twice is refused. Pose assumptions
+  render in mm and mrad and are named by their assumption id, because they
+  are an assessment's sidecar, not belief; *coordinate convention* and
+  *factor inference* are cards when the record carries them (a null reads
+  `undeclared`; a committed canonical state is refused). The frames table
+  states each frame's parent, unit, origin and whether it is rotated; the
+  margins table (mean ± sigma in mm, P(violates), two-tier accents)
+  truncates at 20 rows with a note. *Inputs and identity* carries the
+  inputs declaration (`undeclared` when absent, and the notes say so), the
+  method version — as the record declares it, or "not declared in the
+  record", never the reader's own version — and the three identities
+  (world, frame representation, assessment). Refused, never drawn: an
+  acceptance that outruns its calibration, a covariance that does not match
+  its margins, or bound dimensions naming entities outside the declared
+  subjects. The companion `gat-fit-held-out-v1` evaluation renders a
+  populated `DESCRIPTIVE_EVALUATION` under an `UNVALIDATED` headline with
+  nominal/observed coverage per group and a *predicted vs measured* table
+  per residual (the value the prediction expected, the measured value, the
+  predictive sigma, the standardised residual) with the assessment digest
+  once on the evaluation card; a residual record the reader does not
+  recognise renders as emitted, every key a column. An empty evaluation is
+  an empty state (`NO_MEASUREMENTS`), not a pass. Factor-conditioned
+  predictions display local tangent corrections and explicitly retain
+  reference frames; they do not imply rebased canonical placements or field
+  calibration.
+* `gat report clearance-voi.json [--html]` — a measurement recommendation
+  (`gat.finite-decision-plan.v1`, or the saved
+  `gat.synthetic-clearance-voi-experiment.v1` with its source, model and
+  compared policies). The headline is the plan's disposition:
+  `RECOMMEND_MEASUREMENT` is amber attention, a proposed measurement;
+  `NO_WORTHWHILE_AVAILABLE_MEASUREMENT` is undecided grey. The card explains
+  the choice without making it: the baseline decision and its expected loss,
+  the recommended measurement with its quantity, cost, expected loss
+  reduction, net value and expected posterior loss; the candidates ranked as
+  emitted; **every outcome branch** of the recommended measurement — reading,
+  probability, posterior P(fit), the decision that would follow and its
+  expected loss — never a most-likely outcome alone; excluded measurements
+  with their availability and permission words and the reason; the compared
+  policies (no measurement, cheapest first, largest uncertainty first,
+  one-step VOI, measure everything, and any bundle) with the note that these
+  are model expectations, not held-out accuracy; the model's status,
+  provenance, decision rule and losses; validation (`NOT_ESTABLISHED`,
+  `NOT_AVAILABLE`, physical action authorized `no`) and the digests. FIT /
+  REJECT are the model's two-action loss decisions and are never painted with
+  the decision palette; the notes say so, and say `SYNTHETIC MODEL` out loud.
+  Refused, never drawn: an unknown disposition, a claimed authorization, a
+  selection the ranking contradicts, arithmetic that does not close, an
+  available and permitted exclusion, and any impossible outcome branch.
 * `gat ledger ledger.json [--html] [-o PATH]` — the execution-ledger
   timeline described above. Exit codes: 0 rendered timeline, 2 invalid or
   tampered chain, 3 I/O error.
@@ -191,11 +262,14 @@ assurance flags render `no` in plain sight and audit statuses like
   decision overlay. The response is bound to the loaded model fail-closed:
   its world digest (for beam assurance, its prior-world digest) must equal
   the model's, and a request must carry the same request id and
-  operation. Elements the case could not clear at its confidence
-  (`P(violation) > 1 − confidence`), the assessed beam, or a change's
-  impacted entities are painted with the disposition colour — the one
-  place signal colour *fills* geometry, because it *is* a verdict (audit
-  statuses may *outline* a piece, see below, and never fill it). The
+  operation. Elements confidently violated (`P(violation) ≥ confidence`),
+  the assessed beam, or a change's impacted entities are painted with the
+  disposition colour — the one place signal colour *fills* geometry,
+  because it *is* a verdict (audit statuses may *outline* a piece, see
+  below, and never fill it). Elements the case could not clear but did not
+  confidently violate (between `1 − confidence` and `confidence`) are
+  painted `UNRESOLVED` amber: uncertain is never red. The acceptance
+  report's element-risks table accents its rows by the same two tiers. The
   request's proposed clearance boxes are drawn as always-visible wireframes
   in the same colour, so a REJECT is seen at the exact spot it was
   decided. Because the engine's world digest currently carries the model's
@@ -218,6 +292,9 @@ assurance flags render `no` in plain sight and audit statuses like
   `MISSING_SOURCE_DATA`, `BLOCKED`) is *outlined* in its status colour
   while its fill keeps the identity hue, because an audit status describes
   the corpus, not a verdict on the asset. `READY` pieces carry no outline.
+  The meta line states the frame the scene is drawn in (id, units, up
+  axis, CRS or none, and the engine's placement-uncertainty limit) from
+  the stated frame record; see `docs/projection-spec-v1.md`, *Frames*.
 * `gat workbench model.ifc -o workbench.html [--decision … --request … --ledger … --no-audit]`
   — the Notation Workbench: the eight modes above behind one toolbar
   (keys 1–8), the viewer embedded in a sandboxed frame as STRUCTURE, the

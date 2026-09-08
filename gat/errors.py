@@ -60,6 +60,11 @@ class LikelihoodCalibrationError(GatError):
     """Scan evidence failed a provenance, quality, or calibration gate."""
 
 
+class DatumError(GatError):
+    """A vertical datum or geodetic anchor is undeclared, under-evidenced or
+    not transformable from what was supplied."""
+
+
 class SnapshotError(GatError):
     """A computational-state snapshot is corrupt, incompatible, or invalid."""
 

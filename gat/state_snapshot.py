@@ -54,6 +54,7 @@ from gat.ir.core import (
 )
 from gat.ir.exprs import Add, Const, Expr, Mean, Mul, Neg, ScaledSum, Sub, VarRef
 from gat.trace import TraceEvent
+from gat.runtime_diagnostics import execution_environment
 
 
 SNAPSHOT_FORMAT = "gat-state-snapshot"
@@ -256,7 +257,12 @@ def reconstruct_snapshot(document: Mapping[str, object]) -> SnapshotLoadResult:
         payload["source_world_digest"], "source_world_digest"
     )
     if world.digest() != source_world_digest:
-        raise SnapshotError("reconstructed world digest differs from source")
+        raise SnapshotError(
+            "reconstructed world digest differs from source; exact continuation refused. "
+            f"source={source_world_digest}; reconstructed={world.digest()}; "
+            "runtime=" + json.dumps(execution_environment(), sort_keys=True) + "; "
+            "use a qualified source-compatible execution environment; do not replace the source digest"
+        )
     source_configuration_digest = _string(
         payload["source_configuration_digest"], "source_configuration_digest"
     )

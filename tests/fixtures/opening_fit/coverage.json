@@ -1,0 +1,72 @@
+{
+  "contract": "gat-fit-held-out-v1",
+  "status": "DESCRIPTIVE_EVALUATION",
+  "groups": [
+    {
+      "quantity_class": "corner_clearance",
+      "frame_id": "opening",
+      "frame_representation_digest": "5b5f44a47dfab98acb7ee5f0e6b9f33fd2151c7b0a389c8c7e16b3091f31b660",
+      "calibration_version": "synthetic-v1",
+      "count": 3,
+      "coverage": [
+        {
+          "nominal": 0.5,
+          "observed": 0.3333333333333333
+        },
+        {
+          "nominal": 0.8,
+          "observed": 0.6666666666666666
+        },
+        {
+          "nominal": 0.95,
+          "observed": 0.6666666666666666
+        }
+      ]
+    }
+  ],
+  "residuals": [
+    {
+      "sample_id": "synthetic-heldout-0",
+      "source_id": "synthetic-independent-checks",
+      "calibration_version": "synthetic-v1",
+      "assessment_digest": "e46f54fc2ad77471f88cc5520d5665555885d69922fedc49dcb16b090fb80dd3",
+      "risk_id": "corner-0:left",
+      "value_m": 0.05919999999999981,
+      "independent_noise_sigma_m": 0.001,
+      "residual_m": 0.0,
+      "predictive_observation_sigma_m": 0.002303258561256204,
+      "standardised_residual": 0.0
+    },
+    {
+      "sample_id": "synthetic-heldout-1",
+      "source_id": "synthetic-independent-checks",
+      "calibration_version": "synthetic-v1",
+      "assessment_digest": "e46f54fc2ad77471f88cc5520d5665555885d69922fedc49dcb16b090fb80dd3",
+      "risk_id": "corner-0:left",
+      "value_m": 0.06150325856125601,
+      "independent_noise_sigma_m": 0.001,
+      "residual_m": 0.0023032585612562037,
+      "predictive_observation_sigma_m": 0.002303258561256204,
+      "standardised_residual": 0.9999999999999998
+    },
+    {
+      "sample_id": "synthetic-heldout-2",
+      "source_id": "synthetic-independent-checks",
+      "calibration_version": "synthetic-v1",
+      "assessment_digest": "e46f54fc2ad77471f88cc5520d5665555885d69922fedc49dcb16b090fb80dd3",
+      "risk_id": "corner-0:left",
+      "value_m": 0.06610977568376843,
+      "independent_noise_sigma_m": 0.001,
+      "residual_m": 0.006909775683768618,
+      "predictive_observation_sigma_m": 0.002303258561256204,
+      "standardised_residual": 3.0000000000000027
+    }
+  ],
+  "independence": "declared by caller; not verified",
+  "limitations": [
+    "SYNTHETIC HARNESS EXAMPLE: invented observations and checks; not field calibration.",
+    "correlated samples are not independent trials",
+    "no coverage confidence intervals or acceptance authority",
+    "calibration provenance must be independently reviewed"
+  ]
+}

@@ -33,6 +33,30 @@ from typing import Mapping, Sequence
 
 RESPONSE_FORMAT = "gat-headless-response-v1"
 AUDIT_FORMAT = "gat-ifc-audit-v1"
+FIT_FORMAT = "gat-opening-fit-v1"
+FIT_CALIBRATION_FORMAT = "gat-fit-held-out-v1"
+VOI_PLAN_SCHEMA = "gat.finite-decision-plan.v1"
+VOI_EXPERIMENT_SCHEMA = "gat.synthetic-clearance-voi-experiment.v1"
+VOI_METHOD = "gat.finite-decision-voi.v1"
+_VOI_DISPOSITIONS = frozenset({"RECOMMEND_MEASUREMENT", "NO_WORTHWHILE_AVAILABLE_MEASUREMENT"})
+_VOI_DECISIONS = frozenset({"FIT", "REJECT"})
+_VOI_AVAILABILITY = frozenset({"AVAILABLE", "UNAVAILABLE", "UNKNOWN"})
+_VOI_PERMISSION = frozenset({"PERMITTED", "FORBIDDEN", "UNKNOWN"})
+_VOI_MODEL_STATUS = frozenset({"SYNTHETIC", "DECLARED_UNVALIDATED"})
+_VOI_POLICY_ORDER = ("no_measurement", "cheapest_first", "largest_uncertainty_first", "one_step_voi", "measure_everything")
+#: The evaluator's residual record, as ``evaluate_held_out`` emits it; a
+#: residual carrying all of these renders as a predicted-vs-measured
+#: comparison, anything else renders as emitted.
+_RESIDUAL_KEYS = (
+    "risk_id",
+    "sample_id",
+    "source_id",
+    "assessment_digest",
+    "value_m",
+    "residual_m",
+    "predictive_observation_sigma_m",
+    "standardised_residual",
+)
 
 #: Signal classes — what a rendered term asks of the reader.
 PROCEED = "proceed"
@@ -60,6 +84,16 @@ SIGNAL_CLASSES: dict[str, str] = {
     "MISSING_SOURCE_DATA": ATTENTION,
     "ERROR": UNDECIDED,
     "NOT_RUN": UNDECIDED,
+    # Opening-fit assessment: a prediction nobody has measured against, and
+    # a held-out evaluation with nothing to evaluate, are not decisions.
+    "UNVALIDATED": UNDECIDED,
+    "NO_MEASUREMENTS": UNDECIDED,
+    # Measurement recommendation: a proposed measurement asks for attention;
+    # "nothing is worth its cost" and "not field-validated" are not decisions.
+    "RECOMMEND_MEASUREMENT": ATTENTION,
+    "NO_WORTHWHILE_AVAILABLE_MEASUREMENT": UNDECIDED,
+    "NOT_ESTABLISHED": UNDECIDED,
+    "NOT_AVAILABLE": UNDECIDED,
 }
 
 #: Signal class -> linear RGBA.  The six decision terms shared with the
@@ -119,6 +153,63 @@ def format_moment(mean_n_m: float, sigma_n_m: float | None = None) -> str:
 
 def format_number(value: float) -> str:
     return f"{value:.6g}"
+
+
+def _margin_accent(p_violates: float, confidence: float) -> str:
+    """Two tiers, and uncertain is never red: ``VIOLATED`` only when the
+    margin is confidently violated (``P(violates) >= confidence``),
+    ``UNRESOLVED`` when it merely cannot be cleared at that confidence
+    (between ``1 - confidence`` and ``confidence``), nothing below."""
+    if p_violates >= confidence:
+        return "VIOLATED"
+    if p_violates > 1.0 - confidence:
+        return "UNRESOLVED"
+    return ""
+
+
+#: The reader's threshold for calling a standardised residual large.  It is
+#: the reader's and not the record's: no held-out record declares one, and the
+#: card says so, the same way the method version is shown as the record
+#: declares it or as not declared at all.
+RESIDUAL_ATTENTION_Z = 3.0
+
+
+def _residual_accent(standardised: float) -> str:
+    """One tier, and never red.  A standardised residual past the threshold
+    says the prediction and the measurement disagree by more than the
+    declared sigma explains.  It does not say which of the two is wrong, so
+    it is never a decision and never takes the decision colour."""
+    return "UNRESOLVED" if abs(standardised) >= RESIDUAL_ATTENTION_Z else ""
+
+
+#: Why the residual table is where a disagreement shows, and the posterior is
+#: not.  Combining two disagreeing Gaussian measurements adds their
+#: precisions, so the posterior narrows however far apart they are and can end
+#: up more confident than either input about a value neither declared.  A
+#: reader who looks to the posterior sigma for conflict will find the opposite
+#: of conflict there.
+RESIDUAL_CHANNEL_NOTE = (
+    "A standardised residual is where a disagreement between the prediction "
+    "and a measurement is visible. It is not visible in the posterior: "
+    "combining two disagreeing Gaussian measurements adds their precisions, "
+    "so the posterior narrows however far apart they are, and can be more "
+    "confident than either about a value neither declared. The residual is "
+    "the channel; a narrow posterior is not evidence that the inputs agreed."
+)
+
+
+def _declared(value: object) -> str:
+    """A record field shown verbatim; an absent or null value says so instead
+    of rendering as an empty cell or a Python ``None``."""
+    if value is None:
+        return "undeclared"
+    if isinstance(value, bool):
+        return _yes_no(value)
+    if isinstance(value, (int, float)):
+        return format_number(float(value))
+    if isinstance(value, list):
+        return ", ".join(_declared(item) for item in value) if value else "none"
+    return str(value)
 
 
 def _yes_no(value: bool) -> str:
@@ -295,6 +386,12 @@ def decode_response(value: object) -> DecisionReport:
     response = _object(value, "response")
     if response.get("format") == AUDIT_FORMAT:
         return _audit_report(response)
+    if response.get("contract") == FIT_FORMAT:
+        return _fit_report(response)
+    if response.get("contract") == FIT_CALIBRATION_FORMAT:
+        return _fit_calibration_report(response)
+    if response.get("schema") in (VOI_PLAN_SCHEMA, VOI_EXPERIMENT_SCHEMA):
+        return _voi_report(response)
     if response.get("format") != RESPONSE_FORMAT:
         raise ValueError(f"unsupported response format {response.get('format')!r}")
     if set(response) == {"format", "error"}:
@@ -432,10 +529,11 @@ def _acceptance_report(
             )
         )
         accents.append(verdict)
-        # Per-element clearance risks, when the check carries them.  An
-        # element the case could not clear at its confidence takes the
-        # check's own verdict as its accent — the same rule the viewer uses
-        # to paint decision subjects.
+        # Per-element clearance risks, when the check carries them.  Two
+        # tiers, and uncertain is never red: VIOLATED only when the element
+        # is confidently violated (P >= confidence), UNRESOLVED when the case
+        # merely could not clear it (between the thresholds), nothing below
+        # — the same rule the viewer uses to paint decision subjects.
         details = check.get("details")
         risks = details.get("risks") if isinstance(details, Mapping) else None
         for risk in _array(risks, "check.details.risks") if risks is not None else ():
@@ -451,7 +549,7 @@ def _acceptance_report(
                     format_probability(p_violates),
                 )
             )
-            risk_accents.append(verdict if p_violates > 1.0 - confidence else "")
+            risk_accents.append(_margin_accent(p_violates, confidence))
 
     request_rows: list[tuple[str, ...]] = []
     for item in _array(result.get("evidence_requests"), "evidence_requests"):
@@ -906,6 +1004,846 @@ def _audit_report(document: Mapping[str, object]) -> DecisionReport:
         subject=name,
         subline="fail-closed IFC compatibility audit",
         notes=(),
+        blocks=tuple(blocks),
+        footers=(NON_AUTHORIZING_FOOTER, READ_ONLY_FOOTER),
+    )
+
+
+def _fit_report(document: Mapping[str, object]) -> DecisionReport:
+    """Render-ready opening-fit prediction (``gat-opening-fit-v1``).
+
+    The headline is the field *acceptance*, never the model's prediction: a
+    fit the model predicts but no measurement has validated is still a
+    request for evidence.  Fail-closed: vocabulary outside the palette, an
+    acceptance that outruns its calibration status, a covariance that does
+    not match its margins, or bound dimensions naming entities outside the
+    declared subjects are refused, never drawn.
+    """
+    acceptance = _string(document.get("acceptance"), "acceptance")
+    if acceptance not in ACCEPTANCE_DISPOSITIONS:
+        raise ValueError(f"unsupported fit acceptance {acceptance!r}")
+    prediction = _string(document.get("model_prediction"), "model_prediction")
+    if prediction not in BEAM_DISPOSITIONS:
+        raise ValueError(f"unsupported fit prediction {prediction!r}")
+    calibration = _string(document.get("calibration_status"), "calibration_status")
+    if calibration not in SIGNAL_CLASSES:
+        raise ValueError(f"unsupported calibration status {calibration!r}")
+    if acceptance == "ACCEPT" and calibration == "UNVALIDATED":
+        raise ValueError("a fit report cannot accept on unvalidated calibration")
+    world_digest = _string(document.get("world_digest"), "world_digest")
+    frame_digest = _string(
+        document.get("frame_representation_digest"), "frame_representation_digest"
+    )
+    assessment_digest = _string(document.get("assessment_digest"), "assessment_digest")
+    confidence = _number(document.get("confidence"), "confidence")
+    clearance = _number(document.get("required_clearance_m"), "required_clearance_m")
+    if not 0.5 < confidence < 1.0 or clearance < 0:
+        raise ValueError("invalid confidence or required clearance")
+    lower = _number(document.get("p_any_violation_lower"), "p_any_violation_lower")
+    upper = _number(document.get("p_any_violation_upper"), "p_any_violation_upper")
+    if not 0.0 <= lower <= upper <= 1.0:
+        raise ValueError("violation probability bounds are inconsistent")
+    nominal = document.get("deterministic_nominal_fit")
+    if not isinstance(nominal, bool):
+        raise ValueError("deterministic_nominal_fit must be a boolean")
+
+    subjects = [
+        f"{_string(_object(item, 'subject').get('ifc_class'), 'subject.ifc_class')}:"
+        f"{_string(_object(item, 'subject').get('global_id'), 'subject.global_id')}"
+        for item in _array(document.get("subjects"), "subjects")
+    ]
+    binding = _object(document.get("binding"), "binding")
+    dimensions = [
+        _string(item, "binding.dimension")
+        for item in _array(binding.get("dimensions"), "binding.dimensions")
+    ]
+    dimensions_m = [
+        _number(item, "binding.dimension_m")
+        for item in _array(binding.get("dimensions_m"), "binding.dimensions_m")
+    ]
+    if len(dimensions) != 5 or len(dimensions_m) != 5:
+        raise ValueError(
+            "binding must name five dimensions: opening width/height, assembly x/y/z"
+        )
+    entities = [name.rsplit(".", 1)[0] for name in dimensions]
+    if any(entity not in subjects for entity in entities):
+        raise ValueError("bound dimensions name entities outside the declared subjects")
+    opening_entity, assembly_entity = entities[0], entities[2]
+
+    risks = _array(document.get("risks"), "risks")
+    covariance = _array(document.get("margin_covariance_m2"), "margin_covariance_m2")
+    if not risks or len(covariance) != len(risks) or any(
+        len(_array(row, "margin covariance row")) != len(risks) for row in covariance
+    ):
+        raise ValueError("margin covariance does not match the margins")
+    risk_rows: list[tuple[str, ...]] = []
+    all_accents: list[str] = []
+    risk_classes: list[str] = []
+    means: list[float] = []
+    probabilities: list[float] = []
+    for item in risks:
+        risk = _object(item, "risk")
+        p_violates = _number(risk.get("p_violates"), "risk.p_violates")
+        mean = _number(risk.get("mean_m"), "risk.mean_m")
+        sigma = _number(risk.get("sigma_m"), "risk.sigma_m")
+        if not 0.0 <= p_violates <= 1.0 or sigma < 0.0:
+            raise ValueError("margin risk values are out of range")
+        risk_rows.append(
+            (
+                _string(risk.get("id"), "risk.id"),
+                _string(risk.get("frame_id"), "risk.frame_id"),
+                f"{mean * 1000:.1f} +- {sigma * 1000:.1f} mm",
+                format_probability(p_violates),
+            )
+        )
+        risk_classes.append(_declared(risk.get("quantity_class")))
+        all_accents.append(_margin_accent(p_violates, confidence))
+        means.append(mean)
+        probabilities.append(p_violates)
+    # The controlling clearance is the margin the prediction turns on: the
+    # highest violation probability, ties broken by the smallest margin.  The
+    # tightest margin (smallest mean) is named beside it when it differs.
+    controlling = max(
+        range(len(risks)), key=lambda index: (probabilities[index], -means[index])
+    )
+    tightest = min(range(len(risks)), key=lambda index: means[index])
+    # Long tables truncate at 20 rows with an explicit note, like every other
+    # table; the controlling and tightest margins have their own card, so the
+    # truncation can never hide them.
+    risk_overflow = f"and {len(risk_rows) - 20} more margins" if len(risk_rows) > 20 else ""
+    table_rows, table_accents = tuple(risk_rows[:20]), tuple(all_accents[:20])
+
+    pose = _object(document.get("pose"), "pose")
+    order = [_string(item, "pose.order") for item in _array(pose.get("order"), "pose.order")]
+    pose_cov = _array(pose.get("covariance"), "pose.covariance")
+    if len(pose_cov) != 6 * len(order):
+        raise ValueError("pose covariance does not match the pose order")
+    assumption_id = _string(pose.get("assumption_id"), "pose.assumption_id")
+    pose_fields: list[tuple[str, str]] = [
+        ("convention", _string(pose.get("convention"), "pose.convention")),
+        ("assumption", assumption_id),
+    ]
+    for index, body in enumerate(order):
+        base = 6 * index
+        sigmas = []
+        for offset in range(6):
+            row = _array(pose_cov[base + offset], "pose covariance row")
+            variance = _number(row[base + offset], "pose variance")
+            if variance < 0.0:
+                raise ValueError("pose variance is negative")
+            sigmas.append(variance ** 0.5)
+        pose_fields.append(
+            (
+                f"{body} position sigma",
+                " / ".join(f"{value * 1000:.2f}" for value in sigmas[:3]) + " mm",
+            )
+        )
+        pose_fields.append(
+            (
+                f"{body} rotation sigma",
+                " / ".join(f"{value * 1000:.2f}" for value in sigmas[3:]) + " mrad",
+            )
+        )
+    cross = _array(pose.get("raw_pose_cross_covariance"), "pose.raw_pose_cross_covariance")
+    correlated = any(
+        abs(_number(value, "cross covariance")) > 0.0
+        for row in cross
+        for value in _array(row, "cross covariance row")
+    )
+    pose_fields.append(
+        (
+            "dimensions and pose",
+            "correlated (cross-covariance declared)"
+            if correlated
+            else "declared independent (zero cross-covariance)",
+        )
+    )
+    canonical = pose.get("canonical_placement_uncertainty")
+    if not isinstance(canonical, bool):
+        raise ValueError("canonical_placement_uncertainty must be a boolean")
+    pose_fields.append(("canonical placement uncertainty", _yes_no(canonical)))
+    if "mean_tangent" in pose:
+        tangent = [_number(value, "pose.mean_tangent") for value in _array(pose["mean_tangent"], "pose.mean_tangent")]
+        if len(tangent) != 6 * len(order):
+            raise ValueError("pose mean does not match pose order")
+        for index, body in enumerate(order):
+            start = index * 6
+            pose_fields.append((f"{body} local position correction", " / ".join(f"{v * 1000:.2f}" for v in tangent[start:start+3]) + " mm"))
+            pose_fields.append((f"{body} local rotation correction", " / ".join(f"{v * 1000:.2f}" for v in tangent[start+3:start+6]) + " mrad"))
+
+    # Frames: each declares its parent, unit, origin and whether it is
+    # rotated.  The bound frames must be declared, and their chains to the
+    # root must close; a chain that is broken or cycles is refused, because
+    # a placement whose frame cannot be resolved cannot be drawn honestly.
+    frame_rows: list[tuple[str, ...]] = []
+    parents: dict[str, str | None] = {}
+    for item in _array(document.get("frames"), "frames"):
+        frame = _object(item, "frame")
+        frame_id = _string(frame.get("id"), "frame.id")
+        if frame_id in parents:
+            raise ValueError(f"frame {frame_id!r} is declared twice")
+        parent = frame.get("parent_id")
+        parents[frame_id] = None if parent is None else _string(parent, "frame.parent_id")
+        translation = [
+            _number(value, "frame.translation_m")
+            for value in _array(frame.get("translation_m"), "frame.translation_m")
+        ]
+        rotation = [
+            [_number(value, "frame.rotation") for value in _array(row, "frame.rotation row")]
+            for row in _array(frame.get("rotation"), "frame.rotation")
+        ]
+        if len(rotation) != 3 or any(len(row) != 3 for row in rotation):
+            raise ValueError("frame rotation must be a 3x3 matrix")
+        identity = all(
+            abs(value - (1.0 if column == line else 0.0)) <= 1e-12
+            for line, row in enumerate(rotation)
+            for column, value in enumerate(row)
+        )
+        frame_rows.append(
+            (
+                frame_id,
+                "root" if parents[frame_id] is None else str(parents[frame_id]),
+                _string(frame.get("unit"), "frame.unit"),
+                ", ".join(format_number(value) for value in translation) + " m",
+                "identity" if identity else "rotated",
+            )
+        )
+
+    def chain(frame_id: str) -> str:
+        path: list[str] = []
+        current: str | None = frame_id
+        while current is not None:
+            if current not in parents:
+                raise ValueError(f"frame {current!r} is bound but not declared")
+            if current in path:
+                raise ValueError(f"frame chain cycles at {current!r}")
+            path.append(current)
+            current = parents[current]
+        return " -> ".join(path)
+
+    opening_frame = _string(binding.get("opening_frame"), "binding.opening_frame")
+    assembly_frame = _string(binding.get("assembly_frame"), "binding.assembly_frame")
+    opening_chain, assembly_chain = chain(opening_frame), chain(assembly_frame)
+
+    inputs = document.get("inputs")
+    notes: list[str] = []
+    if isinstance(inputs, str):
+        if inputs not in ("unknown", "synthetic", "measured", "mixed"):
+            raise ValueError("unsupported input provenance declaration")
+        notes.append(f"inputs: {inputs}")
+        if inputs == "synthetic":
+            notes.append(
+                "SYNTHETIC INPUTS: invented dimensions and pose assumptions, not a building."
+            )
+        inputs_text = inputs
+    else:
+        notes.append(
+            "The record does not declare whether its inputs are measured or synthetic."
+        )
+        inputs_text = "undeclared"
+    notes.extend(
+        _string(item, "limitation") for item in _array(document.get("limitations"), "limitations")
+    )
+    convention_fields: list[tuple[str, str]] = []
+    if "coordinate_convention" in document:
+        convention = _object(document["coordinate_convention"], "coordinate_convention")
+        convention_fields = [(key, _declared(value)) for key, value in convention.items()]
+    inference_fields: list[tuple[str, str]] = []
+    factor_count = 0
+    if "inference" in document:
+        inference = _object(document["inference"], "inference")
+        if inference.get("contract") != "gat-opening-factor-bridge-v1" or inference.get("canonical_state_committed") is not False:
+            raise ValueError("unsupported or committed opening factor inference")
+        notes.append("FACTOR INFERENCE: fixed first-order linearization at the recorded reference frames. Pose corrections are local tangent means; frames are not rebased. In-sample residuals are not calibration.")
+        graph = inference.get("graph")
+        factors = (
+            [_object(item, "factor") for item in _array(_object(graph, "inference.graph").get("factors"), "inference.graph.factors")]
+            if graph is not None
+            else []
+        )
+        factor_count = len(factors)
+        factor_text = "; ".join(
+            f"{_string(factor.get('id'), 'factor.id')} ({_declared(factor.get('kind'))}, source {_declared(factor.get('source_id'))})"
+            for factor in factors
+        )
+        inference_fields = [
+            ("contract", "gat-opening-factor-bridge-v1"),
+            ("geometry evaluation", _declared(inference.get("geometry_evaluation"))),
+            ("factors", f"{factor_count}: {factor_text}" if factors else "none"),
+            ("reference assessment", _declared(inference.get("reference_assessment_digest"))),
+            ("factor graph", _string(inference.get("graph_digest"), "inference.graph_digest")),
+            ("canonical state committed", "no"),
+        ]
+    # The method that produced the assessment is the record's to declare;
+    # the reader's own version would be a different program's.  Until the
+    # contract carries one, the card says so rather than guessing.
+    method = document.get("method")
+    method_fields = (
+        _scalar_fields(_object(method, "method"), prefix="method ")
+        if method is not None
+        else [("method version", "not declared in the record")]
+    )
+
+    # What the margins rest on, so a reader can see which quantities no
+    # independent measurement has validated.  Every entry is read from the
+    # record: the bound dimensions, the pose bodies and their assumption, and
+    # the record's own statement that it carries no evidence receipt.
+    evidence_fields: list[tuple[str, str]] = [
+        ("field acceptance", acceptance),
+        ("calibration", calibration),
+        (
+            "receipts in this record",
+            "none; gat-opening-fit-v1 carries no evidence receipt, and held-out "
+            "measurements are evaluated in a separate gat-fit-held-out-v1 document",
+        ),
+        ("margins rest on", f"{len(dimensions)} dimensions and {len(order)} poses"),
+        ("dimensions", "; ".join(dimensions)),
+        ("poses", f"{', '.join(order)}; assumption {assumption_id}"),
+    ]
+    if inference_fields:
+        evidence_fields.append(
+            (
+                "in-sample factors",
+                f"{factor_count}; in-sample residuals are not calibration",
+            )
+        )
+    evidence_title = "evidence still missing" if acceptance == "REQUEST_EVIDENCE" else "evidence"
+
+    controlling_row, tightest_row = risk_rows[controlling], risk_rows[tightest]
+    blocks: list[Card | Table] = [
+        Card(
+            "prediction",
+            (
+                ("model prediction", prediction),
+                ("nominal fit", _yes_no(nominal)),
+                (
+                    "P(any violation)",
+                    f"{format_probability(lower)}..{format_probability(upper)}",
+                ),
+                ("required clearance", f"{clearance * 1000:.1f} mm per edge"),
+                ("confidence", f"{confidence:.0%}"),
+            ),
+            accent=prediction,
+        ),
+        Card(
+            "controlling clearance",
+            (
+                ("margin", controlling_row[0]),
+                ("quantity class", risk_classes[controlling]),
+                ("frame", controlling_row[1]),
+                ("mean +- sigma", controlling_row[2]),
+                ("P(violates)", controlling_row[3]),
+                ("required clearance", f"{clearance * 1000:.1f} mm per edge"),
+                ("rule", "highest P(violates), then smallest margin"),
+                (
+                    "tightest margin",
+                    "the same"
+                    if tightest == controlling
+                    else f"{tightest_row[0]} {tightest_row[2]} (P(violates) {tightest_row[3]})",
+                ),
+            ),
+            accent=all_accents[controlling],
+        ),
+        Card(
+            "calibration",
+            (
+                ("status", calibration),
+                ("field acceptance", acceptance),
+            ),
+            accent=calibration,
+        ),
+        Card(evidence_title, tuple(evidence_fields), accent=calibration),
+        Card(
+            "binding",
+            (
+                ("opening", opening_entity),
+                ("assembly", assembly_entity),
+                ("opening frame", opening_frame),
+                ("assembly frame", assembly_frame),
+                ("opening frame chain", opening_chain),
+                ("assembly frame chain", assembly_chain),
+                *(
+                    (name.rsplit(".", 1)[-1] + f" ({entity.split(':', 1)[0]})", f"{value:.4g} m")
+                    for name, entity, value in zip(dimensions, entities, dimensions_m)
+                ),
+            ),
+        ),
+        Card("pose assumptions", tuple(pose_fields)),
+        *([Card("coordinate convention", tuple(convention_fields))] if convention_fields else []),
+        *([Card("factor inference", tuple(inference_fields))] if inference_fields else []),
+        Table(
+            "frames",
+            ("frame", "parent", "unit", "origin in parent", "rotation"),
+            tuple(frame_rows),
+            tuple("" for _ in frame_rows),
+        ),
+        Table(
+            "margins",
+            ("risk", "frame", "margin", "P(violates)"),
+            table_rows,
+            table_accents,
+            overflow=risk_overflow,
+        ),
+        Card(
+            "inputs and identity",
+            (
+                ("inputs", inputs_text),
+                *method_fields,
+                ("contract", FIT_FORMAT),
+                ("world", world_digest),
+                ("frame representation", frame_digest),
+                ("assessment", assessment_digest),
+            ),
+        ),
+    ]
+    footers = (
+        RECOMMENDATION_FOOTER if acceptance == "ACCEPT" else NON_AUTHORIZING_FOOTER,
+        READ_ONLY_FOOTER,
+    )
+    return DecisionReport(
+        operation="opening_fit",
+        request_id="",
+        world_digest=world_digest,
+        disposition=acceptance,
+        subject=f"{assembly_entity} into {opening_entity}",
+        subline=(
+            f"opening-fit assessment; model prediction {prediction}; "
+            f"calibration {calibration}"
+        ),
+        notes=tuple(notes),
+        blocks=tuple(blocks),
+        footers=footers,
+    )
+
+def _close(left: float, right: float, scale: float = 1.0) -> bool:
+    return abs(left - right) <= 1e-9 * max(1.0, abs(scale))
+
+
+def _voi_result(document: Mapping[str, object], label: str) -> dict[str, object]:
+    """One evaluated acquisition set (``gat.finite-decision-voi.v1``): a fixed
+    set of measurements, its cost, its expected posterior loss and every
+    possible reading with the decision that would follow.  Refused when the
+    arithmetic does not close, when a branch is impossible (probability zero
+    or outside [0, 1], probabilities not summing to one) or when the record
+    claims an authorization no recommendation can carry."""
+    if document.get("schema") != VOI_METHOD:
+        raise ValueError(f"{label}: unsupported value-of-information schema {document.get('schema')!r}")
+    if document.get("physical_action_authorized") is not False:
+        raise ValueError(f"{label}: a recommendation cannot claim physical action authorization")
+    ids = [_string(item, f"{label}.measurement_ids") for item in _array(document.get("measurement_ids"), f"{label}.measurement_ids")]
+    cost = _number(document.get("acquisition_cost"), f"{label}.acquisition_cost")
+    posterior_loss = _number(document.get("expected_posterior_loss"), f"{label}.expected_posterior_loss")
+    total = _number(document.get("expected_total_loss"), f"{label}.expected_total_loss")
+    reduction = _number(document.get("expected_loss_reduction"), f"{label}.expected_loss_reduction")
+    net = _number(document.get("net_value"), f"{label}.net_value")
+    error = _number(document.get("model_expected_decision_error"), f"{label}.model_expected_decision_error")
+    brier = _number(document.get("model_expected_brier_score"), f"{label}.model_expected_brier_score")
+    baseline = _object(document.get("baseline"), f"{label}.baseline")
+    baseline_loss = _number(baseline.get("expected_loss"), f"{label}.baseline.expected_loss")
+    baseline_p = _number(baseline.get("p_fits"), f"{label}.baseline.p_fits")
+    baseline_decision = _string(baseline.get("decision"), f"{label}.baseline.decision")
+    if baseline_decision not in _VOI_DECISIONS or not 0.0 <= baseline_p <= 1.0 or baseline_loss < 0.0:
+        raise ValueError(f"{label}: baseline decision is outside the two-action model")
+    if cost < 0.0 or posterior_loss < 0.0 or not 0.0 <= error <= 1.0 or not 0.0 <= brier <= 0.25 + 1e-12:
+        raise ValueError(f"{label}: losses, costs and model expectations must be in range")
+    scale = max(baseline_loss, cost, 1.0)
+    if not _close(net, reduction - cost, scale) or not _close(total, posterior_loss + cost, scale) or not _close(reduction, baseline_loss - posterior_loss, scale):
+        raise ValueError(f"{label}: net value, total loss and loss reduction do not close")
+    branches: list[dict[str, object]] = []
+    mass = 0.0
+    for item in _array(document.get("outcomes"), f"{label}.outcomes"):
+        branch = _object(item, f"{label}.outcome")
+        probability = _number(branch.get("probability"), f"{label}.outcome.probability")
+        p_fits = _number(branch.get("p_fits"), f"{label}.outcome.p_fits")
+        expected_loss = _number(branch.get("expected_loss"), f"{label}.outcome.expected_loss")
+        decision = _string(branch.get("decision"), f"{label}.outcome.decision")
+        if not 0.0 < probability <= 1.0 or not 0.0 <= p_fits <= 1.0 or expected_loss < 0.0 or decision not in _VOI_DECISIONS:
+            raise ValueError(f"{label}: an outcome branch is impossible or outside the two-action model")
+        readings = []
+        for pair in _array(branch.get("readings"), f"{label}.outcome.readings"):
+            reading = _array(pair, f"{label}.outcome.reading")
+            if len(reading) != 2:
+                raise ValueError(f"{label}: a reading is an (id, value) pair")
+            readings.append((_string(reading[0], f"{label}.outcome.reading.id"), _number(reading[1], f"{label}.outcome.reading.value")))
+        if [reading[0] for reading in readings] != ids:
+            raise ValueError(f"{label}: outcome readings do not name the acquisition set")
+        mass += probability
+        branches.append({"readings": readings, "probability": probability, "p_fits": p_fits, "decision": decision, "expected_loss": expected_loss})
+    if not branches or not _close(mass, 1.0):
+        raise ValueError(f"{label}: outcome probabilities must sum to one")
+    if not _close(posterior_loss, sum(b["probability"] * b["expected_loss"] for b in branches), scale):  # type: ignore[operator]
+        raise ValueError(f"{label}: expected posterior loss does not follow from its branches")
+    return {
+        "ids": ids, "cost": cost, "posterior_loss": posterior_loss, "total": total, "reduction": reduction,
+        "net": net, "error": error, "brier": brier, "baseline": (baseline_decision, baseline_loss, baseline_p),
+        "branches": branches, "result_digest": _string(document.get("result_digest"), f"{label}.result_digest"),
+        "field_validation": _string(document.get("field_validation"), f"{label}.field_validation"),
+        "loss_unit": _string(document.get("loss_unit"), f"{label}.loss_unit"),
+    }
+
+
+def _voi_report(document: Mapping[str, object]) -> DecisionReport:
+    """Render-ready measurement recommendation: a ``gat.finite-decision-plan.v1``
+    alone, or the saved ``gat.synthetic-clearance-voi-experiment.v1`` that
+    carries its source, model and compared policies.
+
+    The card explains a choice rather than making one: what the baseline
+    decision and its expected loss are, which measurement is recommended,
+    what it would cost and save, every possible reading with the decision
+    that would follow, which measurements were excluded and why, and how the
+    one-step selector compares with the naive policies.  FIT / REJECT are the
+    model's two-action loss decisions, never the fit report's SATISFIED /
+    VIOLATED / UNRESOLVED.  Fail-closed: an unknown disposition, a claimed
+    authorization, a selection the ranking contradicts, arithmetic that does
+    not close, or an impossible outcome branch is refused, never drawn.
+    """
+    experiment = document.get("schema") == VOI_EXPERIMENT_SCHEMA
+    plan = _object(document.get("plan"), "plan") if experiment else document
+    if plan.get("schema") != VOI_PLAN_SCHEMA:
+        raise ValueError(f"unsupported plan schema {plan.get('schema')!r}")
+    disposition = _string(plan.get("disposition"), "plan.disposition")
+    if disposition not in _VOI_DISPOSITIONS:
+        raise ValueError(f"unsupported recommendation disposition {disposition!r}")
+    if plan.get("physical_action_authorized") is not False:
+        raise ValueError("a recommendation cannot claim physical action authorization")
+    method = _string(plan.get("method"), "plan.method")
+    if method != VOI_METHOD:
+        raise ValueError(f"unsupported value-of-information method {method!r}")
+    tolerance = _number(plan.get("selection_tolerance"), "plan.selection_tolerance")
+    baseline = _voi_result(_object(plan.get("baseline"), "plan.baseline"), "plan.baseline")
+    if baseline["ids"] or baseline["cost"] != 0.0:
+        raise ValueError("the plan baseline must be the empty acquisition set")
+    options = [_voi_result(_object(item, "plan.option"), f"plan.options[{index}]") for index, item in enumerate(_array(plan.get("options"), "plan.options"))]
+    if any(len(option["ids"]) != 1 for option in options):  # type: ignore[arg-type]
+        raise ValueError("one-step options measure exactly one candidate each")
+    nets = [float(option["net"]) for option in options]  # type: ignore[arg-type]
+    if any(later > earlier + 1e-12 for earlier, later in zip(nets, nets[1:])):
+        raise ValueError("options are not ranked by net value")
+    selected = plan.get("selected")
+    if selected is not None:
+        selected = _string(selected, "plan.selected")
+        if not options or options[0]["ids"] != [selected] or nets[0] <= tolerance:  # type: ignore[index]
+            raise ValueError("the selected measurement contradicts the ranking")
+    elif options and nets[0] > tolerance:
+        raise ValueError("a worthwhile measurement was ranked first but none was selected")
+    if (disposition == "RECOMMEND_MEASUREMENT") != (selected is not None):
+        raise ValueError("the disposition contradicts the selection")
+    excluded: list[tuple[str, str, str, str]] = []
+    for item in _array(plan.get("excluded"), "plan.excluded"):
+        entry = _object(item, "plan.excluded entry")
+        availability = _string(entry.get("availability"), "excluded.availability")
+        permission = _string(entry.get("permission"), "excluded.permission")
+        if availability not in _VOI_AVAILABILITY or permission not in _VOI_PERMISSION:
+            raise ValueError("excluded measurement carries an unknown availability or permission word")
+        reasons = []
+        if availability != "AVAILABLE":
+            reasons.append(f"availability {availability}")
+        if permission != "PERMITTED":
+            reasons.append(f"permission {permission}")
+        if not reasons:
+            raise ValueError("an available, permitted measurement cannot be excluded")
+        excluded.append((_string(entry.get("id"), "excluded.id"), _declared(entry.get("quantity")), availability, permission, "; ".join(reasons)))  # type: ignore[arg-type]
+    field_validation = _string(plan.get("field_validation"), "plan.field_validation")
+    loss_unit = str(baseline["loss_unit"])
+
+    # The model, when the saved experiment carries it: names quantities and units,
+    # declares its status and the losses the decisions rest on.
+    quantities: dict[str, tuple[str, str]] = {}
+    model_fields: list[tuple[str, str]] = []
+    model_status = "undeclared"
+    notes: list[str] = []
+    if experiment:
+        model = _object(document.get("model"), "model")
+        model_status = _string(model.get("model_status"), "model.model_status")
+        if model_status not in _VOI_MODEL_STATUS:
+            raise ValueError(f"unsupported model status {model_status!r}")
+        for item in _array(model.get("measurements"), "model.measurements"):
+            measurement = _object(item, "model.measurement")
+            quantities[_string(measurement.get("id"), "measurement.id")] = (
+                _string(measurement.get("quantity"), "measurement.quantity"),
+                _string(measurement.get("unit"), "measurement.unit"),
+            )
+        source = _object(document.get("source"), "source")
+        model_fields = [
+            ("status", model_status),
+            ("provenance", _string(model.get("provenance"), "model.provenance")),
+            ("decision rule", _declared(source.get("fit"))),
+            ("frame", _declared(source.get("frame"))),
+            ("length unit", _declared(source.get("length_unit"))),
+            ("loss unit", _string(model.get("loss_unit"), "model.loss_unit")),
+            ("false fit loss", format_number(_number(model.get("false_fit_loss"), "model.false_fit_loss"))),
+            ("false reject loss", format_number(_number(model.get("false_reject_loss"), "model.false_reject_loss"))),
+            ("hypotheses", str(len(_array(model.get("hypotheses"), "model.hypotheses")))),
+            ("measurements", str(len(quantities))),
+            ("joint outcomes", str(len(_array(model.get("outcomes"), "model.outcomes")))),
+            ("likelihood", _declared(source.get("likelihood"))),
+        ]
+        if model_status == "SYNTHETIC":
+            notes.append("SYNTHETIC MODEL: generated hypotheses, likelihoods, losses and costs, not survey evidence.")
+    notes.append(
+        "A recommendation is a proposed measurement. Physical action authorized: no. "
+        "It is not a fit verdict and it acquires nothing."
+    )
+    notes.append(
+        "FIT / REJECT are the two-action loss decisions of this model; they are not the "
+        "fit report's SATISFIED / VIOLATED / UNRESOLVED."
+    )
+    if experiment:
+        notes.append(f"evaluation scope: {_string(document.get('evaluation_scope'), 'evaluation_scope')}")
+
+    def quantity_text(measurement_id: str) -> str:
+        quantity = quantities.get(measurement_id)
+        return f"{quantity[0]} ({quantity[1]})" if quantity else "undeclared"
+
+    def readings_text(readings: object) -> str:
+        pairs = readings if isinstance(readings, list) else []
+        return "; ".join(f"{name} = {format_number(value)}" for name, value in pairs) or "none"
+
+    baseline_decision, baseline_loss, baseline_p = baseline["baseline"]  # type: ignore[misc]
+    chosen = options[0] if selected is not None else None
+    recommendation: list[tuple[str, str]] = [
+        ("disposition", disposition),
+        ("measure", selected if selected is not None else "none: no available, permitted measurement is worth its cost"),
+        ("quantity", quantity_text(selected) if selected is not None else "none"),
+        ("baseline decision", f"{baseline_decision}, expected loss {format_number(float(baseline_loss))}, P(fit) {format_probability(float(baseline_p))}"),  # type: ignore[arg-type]
+    ]
+    if chosen is not None:
+        recommendation.extend([
+            ("expected loss reduction", format_number(float(chosen["reduction"]))),  # type: ignore[arg-type]
+            ("acquisition cost", format_number(float(chosen["cost"]))),  # type: ignore[arg-type]
+            ("net value", format_number(float(chosen["net"]))),  # type: ignore[arg-type]
+            ("expected posterior loss", format_number(float(chosen["posterior_loss"]))),  # type: ignore[arg-type]
+            ("outcome branches", str(len(chosen["branches"]))),  # type: ignore[arg-type]
+        ])
+    recommendation.extend([
+        ("loss unit", loss_unit),
+        ("selection tolerance", format_number(tolerance)),
+        ("objective", method),
+        ("excluded", f"{len(excluded)} measurement(s), listed below" if excluded else "none"),
+    ])
+    blocks: list[Card | Table] = [Card("recommendation", tuple(recommendation), accent=disposition)]
+    blocks.append(
+        Table(
+            "candidates",
+            ("measurement", "quantity", "cost", "expected posterior loss", "loss reduction", "net value", "model decision error", "model Brier", "selected"),
+            tuple(
+                (
+                    option["ids"][0], quantity_text(option["ids"][0]), format_number(float(option["cost"])),  # type: ignore[index,arg-type]
+                    format_number(float(option["posterior_loss"])), format_number(float(option["reduction"])),  # type: ignore[arg-type]
+                    format_number(float(option["net"])), format_probability(float(option["error"])),  # type: ignore[arg-type]
+                    format_number(float(option["brier"])), _yes_no(option["ids"] == [selected]),  # type: ignore[arg-type]
+                )
+                for option in options
+            ) or ((f"none", "no available, permitted measurement", "", "", "", "", "", "", "no"),),
+            tuple("" for _ in options) or ("",),
+        )
+    )
+    if chosen is not None:
+        blocks.append(
+            Table(
+                f"outcome branches: {selected}",
+                ("reading", "probability", "P(fit) after", "decision", "expected loss"),
+                tuple(
+                    (readings_text(branch["readings"]), format_probability(float(branch["probability"])), format_probability(float(branch["p_fits"])), str(branch["decision"]), format_number(float(branch["expected_loss"])))  # type: ignore[arg-type]
+                    for branch in chosen["branches"]  # type: ignore[union-attr]
+                ),
+                tuple("" for _ in chosen["branches"]),  # type: ignore[arg-type]
+            )
+        )
+    if excluded:
+        blocks.append(
+            Table(
+                "excluded measurements",
+                ("measurement", "quantity", "availability", "permission", "reason"),
+                tuple(excluded),
+                tuple("" for _ in excluded),
+            )
+        )
+    if experiment:
+        comparisons = _object(document.get("comparisons"), "comparisons")
+        names = [name for name in _VOI_POLICY_ORDER if name in comparisons] + sorted(name for name in comparisons if name not in _VOI_POLICY_ORDER)
+        rows = []
+        for name in names:
+            result = _voi_result(_object(comparisons[name], f"comparisons.{name}"), f"comparisons.{name}")
+            rows.append((name, ", ".join(result["ids"]) or "none", format_number(float(result["cost"])), format_number(float(result["posterior_loss"])), format_number(float(result["total"])), format_number(float(result["net"])), format_probability(float(result["error"]))))  # type: ignore[arg-type]
+        blocks.append(
+            Table(
+                "policies compared",
+                ("policy", "measurements", "cost", "expected posterior loss", "total expected loss", "net value", "model decision error"),
+                tuple(rows),
+                tuple("" for _ in rows),
+                overflow="model expectations under the declared model; not held-out accuracy or calibration",
+            )
+        )
+        blocks.append(Card("model", tuple(model_fields)))
+    validation_fields = [
+        ("field validation", field_validation),
+        ("independent evaluation", _declared(document.get("independent_evaluation")) if experiment else "not declared in a bare plan"),
+        ("physical action authorized", "no"),
+    ]
+    blocks.append(Card("validation", tuple(validation_fields), accent=field_validation if field_validation in SIGNAL_CLASSES else ""))
+    identity_fields = [
+        ("schema", _string(document.get("schema"), "schema")),
+        ("method", method),
+        ("plan result", _string(plan.get("result_digest"), "plan.result_digest")),
+        ("model", _string(plan.get("model_digest"), "plan.model_digest")),
+        ("source", _string(plan.get("source_digest"), "plan.source_digest")),
+    ]
+    if experiment:
+        identity_fields.insert(2, ("artifact", _string(document.get("artifact_digest"), "artifact_digest")))
+    blocks.append(Card("identity", tuple(identity_fields)))
+    return DecisionReport(
+        operation="measurement_recommendation",
+        request_id="",
+        world_digest="",
+        disposition=disposition,
+        subject=f"measure {selected}" if selected is not None else "no worthwhile available measurement",
+        subline=f"one-step value of information; {method}; model {model_status}; field validation {field_validation}",
+        notes=tuple(notes),
+        blocks=tuple(blocks),
+        footers=(NON_AUTHORIZING_FOOTER, READ_ONLY_FOOTER),
+    )
+
+def _fit_calibration_report(document: Mapping[str, object]) -> DecisionReport:
+    """Render-ready held-out evaluation (``gat-fit-held-out-v1``).
+
+    Groups and residuals are rendered as the evaluator emitted them; an
+    empty evaluation is an honest empty state, never a pass.
+    """
+    status = _string(document.get("status"), "status")
+    if status not in ("NO_MEASUREMENTS", "DESCRIPTIVE_EVALUATION", "UNVALIDATED"):
+        raise ValueError(f"unsupported calibration status {status!r}")
+    groups = _array(document.get("groups"), "groups")
+    residuals = _array(document.get("residuals"), "residuals")
+    if status == "NO_MEASUREMENTS" and (groups or residuals):
+        raise ValueError("NO_MEASUREMENTS cannot contain measurements")
+    if status == "DESCRIPTIVE_EVALUATION" and not residuals:
+        raise ValueError("DESCRIPTIVE_EVALUATION requires residuals")
+    blocks: list[Card | Table] = []
+    for index, item in enumerate(groups):
+        blocks.append(Card(f"group {index + 1}", tuple(_scalar_fields(_object(item, "group")))))
+        coverage = _array(_object(item, "group").get("coverage", []), "coverage")
+        coverage_rows = []
+        for entry in coverage:
+            row = _object(entry, "coverage entry")
+            nominal = _number(row.get("nominal"), "coverage.nominal")
+            observed = _number(row.get("observed"), "coverage.observed")
+            if not 0 < nominal < 1 or not 0 <= observed <= 1:
+                raise ValueError("coverage values out of range")
+            coverage_rows.append((f"{nominal:.1%}", f"{observed:.1%}"))
+        if coverage_rows:
+            blocks.append(Table(f"group {index + 1} coverage", ("nominal", "observed"), tuple(coverage_rows), tuple("" for _ in coverage_rows)))
+    assessments: list[str] = []
+    residual_accents: list[str] = []
+    if residuals:
+        records = [_object(item, "residual") for item in residuals]
+        if all(all(key in record for key in _RESIDUAL_KEYS) for record in records):
+            # The evaluator's own residual record, read as a comparison: the
+            # measured value beside the value the prediction expected for it
+            # (measured minus residual), the predictive sigma the residual was
+            # standardised by, and the standardised residual itself.  The
+            # assessment each measurement was checked against is named once,
+            # on the evaluation card, not repeated per row.
+            rows = []
+            for record in records:
+                measured = _number(record["value_m"], "residual.value_m")
+                residual = _number(record["residual_m"], "residual.residual_m")
+                sigma = _number(
+                    record["predictive_observation_sigma_m"],
+                    "residual.predictive_observation_sigma_m",
+                )
+                standardised = _number(record["standardised_residual"], "residual.standardised_residual")
+                if sigma <= 0.0:
+                    raise ValueError("predictive observation sigma must be positive")
+                digest = _string(record["assessment_digest"], "residual.assessment_digest")
+                if digest not in assessments:
+                    assessments.append(digest)
+                rows.append(
+                    (
+                        _string(record["risk_id"], "residual.risk_id"),
+                        _string(record["sample_id"], "residual.sample_id"),
+                        _string(record["source_id"], "residual.source_id"),
+                        f"{(measured - residual) * 1000:.1f} mm",
+                        f"{measured * 1000:.1f} mm",
+                        f"{sigma * 1000:.2f} mm",
+                        format_number(standardised),
+                    )
+                )
+                residual_accents.append(_residual_accent(standardised))
+            blocks.append(
+                Table(
+                    "residuals: predicted vs measured",
+                    ("risk_id", "sample_id", "source_id", "predicted", "measured", "predictive sigma", "standardised_residual"),
+                    tuple(rows),
+                    tuple(residual_accents),
+                )
+            )
+            flagged = sum(1 for accent in residual_accents if accent)
+            blocks.append(
+                Card(
+                    "residuals past the reader's threshold",
+                    (
+                        ("threshold", f"|standardised residual| >= {RESIDUAL_ATTENTION_Z:g}"
+                         " (the reader's, not declared by the record)"),
+                        ("past it", f"{flagged} of {len(rows)}"),
+                        (
+                            "what that says",
+                            "the prediction and the measurement disagree by more than the "
+                            "declared sigma explains; which of the two is wrong is not "
+                            "decided here"
+                            if flagged
+                            else "no residual reaches the threshold; that is not a "
+                            "calibration result, and in-sample residuals never were one",
+                        ),
+                    ),
+                    accent="UNRESOLVED" if flagged else "",
+                )
+            )
+        else:
+            # A residual record the reader does not recognise renders as
+            # emitted, every key a column, rather than being guessed at.
+            columns = tuple(sorted({key for record in records for key in record}))
+            rows = tuple(
+                tuple(
+                    _yes_no(value) if isinstance(value, bool)
+                    else format_number(float(value)) if isinstance(value, (int, float))
+                    else str(value)
+                    for value in (record.get(column, "") for column in columns)
+                )
+                for record in records
+            )
+            blocks.append(Table("residuals", columns, rows, tuple("" for _ in rows)))
+    evaluation_fields: list[tuple[str, str]] = [
+        ("status", status),
+        ("independence", _string(document.get("independence"), "independence")),
+        ("groups", str(len(groups))),
+        ("residuals", str(len(residuals))),
+    ]
+    if len(assessments) == 1:
+        evaluation_fields.append(("assessment", assessments[0]))
+    elif assessments:
+        evaluation_fields.append(("assessments", f"{len(assessments)} distinct"))
+    blocks.append(
+        Card(
+            "evaluation",
+            tuple(evaluation_fields),
+            accent="UNVALIDATED" if status == "DESCRIPTIVE_EVALUATION" else status,
+        )
+    )
+    return DecisionReport(
+        operation="fit_calibration",
+        request_id="",
+        world_digest="",
+        disposition="UNVALIDATED" if status == "DESCRIPTIVE_EVALUATION" else status,
+        subject="held-out calibration",
+        subline=f"{FIT_CALIBRATION_FORMAT}: {len(groups)} groups, {len(residuals)} residuals",
+        notes=(
+            *(
+                _string(item, "limitation")
+                for item in _array(document.get("limitations"), "limitations")
+            ),
+            *((RESIDUAL_CHANNEL_NOTE,) if residual_accents else ()),
+        ),
         blocks=tuple(blocks),
         footers=(NON_AUTHORIZING_FOOTER, READ_ONLY_FOOTER),
     )

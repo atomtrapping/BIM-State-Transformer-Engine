@@ -25,7 +25,10 @@ from gat.workbench import (
     MESSAGE_FORMAT,
     MODES,
     PROJECTION_SPEC_VERSION,
+    PROJECTION_TARGETS,
+    RESERVED,
     UNAVAILABLE,
+    USD_CARRIER_IS_NOT_A_SCENE,
     WORKBENCH_FORMAT,
     export_workbench_html,
     graph_payload,
@@ -140,12 +143,31 @@ class ProjectionSpecTests(unittest.TestCase):
     def test_every_mode_declares_its_loss_frame_and_time(self) -> None:
         for spec in self.specs(decision_bound=True, ledger_bound=True, audit_bound=True):
             for field in ("source", "transformation", "meaning", "loss", "identity",
-                          "frame", "time"):
+                          "frame", "metric", "time"):
                 self.assertTrue(getattr(spec, field), f"{spec.mode}.{field}")
         by_mode = {spec.mode: spec for spec in self.specs()}
         self.assertIn("marginals only", by_mode["STATE"].loss)
         self.assertIn("carry no information", by_mode["GRAPH"].loss)
         self.assertIn("no geodetic frame", by_mode["STRUCTURE"].frame)
+        # frame text is derived from the stated frame record, not typed by hand
+        self.assertIn("corner-origin box with yaw about +Z", by_mode["STRUCTURE"].frame)
+        self.assertIn("dimensions only", by_mode["STRUCTURE"].frame)
+        self.assertIn("METRE x 1.0 -> m", by_mode["STATE"].frame)
+
+    def test_every_mode_declares_its_distance_model(self) -> None:
+        # Coordinates describe positions; the metric decides what a distance
+        # means, so each mode says which one it uses — or that it uses none.
+        by_mode = {spec.mode: spec for spec in self.specs()}
+        self.assertIn("Euclidean distance in the model frame", by_mode["STRUCTURE"].metric)
+        self.assertIn("never paths", by_mode["STRUCTURE"].metric)
+        self.assertIn("geodesic", by_mode["MAP"].metric)
+        self.assertIn("geodesic", by_mode["GLOBE"].metric)
+        self.assertIn("none declared", by_mode["GLOBE"].metric)
+        self.assertTrue(by_mode["GRAPH"].metric.startswith("none"))
+        self.assertIn("not an access graph", by_mode["GRAPH"].metric)
+        self.assertIn("Euclidean clearances", by_mode["EVIDENCE"].metric)
+        for mode in ("STATE", "TIME", "COMPLEXITY"):
+            self.assertTrue(by_mode[mode].metric.startswith("none"), mode)
 
     def test_spec_dict_declares_version_and_no_mutation(self) -> None:
         record = self.specs()[0].to_dict()
@@ -154,9 +176,141 @@ class ProjectionSpecTests(unittest.TestCase):
         self.assertEqual(
             set(record),
             {"version", "mode", "seat", "question", "surface_class", "source",
-             "transformation", "meaning", "loss", "identity", "frame", "time",
-             "availability", "reason", "mutates_source"},
+             "transformation", "meaning", "loss", "identity", "frame", "metric",
+             "time", "availability", "reason", "mutates_source"},
         )
+
+
+class ProjectionTargetTests(unittest.TestCase):
+    """A target is where a projection goes when the surface is another
+    program.  It is declared as data before anything writes one."""
+
+    def target(self, name: str = "USD_STAGE"):
+        return next(t for t in PROJECTION_TARGETS if t.target == name)
+
+    def test_a_target_is_reserved_until_what_it_needs_exists(self) -> None:
+        target = self.target()
+        self.assertEqual(target.availability, RESERVED)
+        self.assertTrue(target.reason)
+        self.assertTrue(target.blocked_on)
+        for blocker in target.blocked_on:
+            self.assertTrue(blocker.strip())
+        joined = " ".join(target.blocked_on)
+        # Each blocker names something that does not exist, not a preference.
+        self.assertIn("uncertainty into a prim", joined)
+        self.assertIn("no CRS", joined)
+        self.assertIn("release identifier and digest", joined)
+        self.assertIn("second release to stack", joined)
+
+    def test_the_two_clocks_are_carried_on_different_axes_and_both_are_named(self) -> None:
+        # A target with one time axis will be read as having one clock unless
+        # it says which axis carries which.
+        target = self.target()
+        self.assertIn("sublayer stack", target.knowledge_time)
+        self.assertIn("truncated", target.knowledge_time)
+        self.assertIn("time axis", target.world_time)
+        self.assertIn("validity", target.world_time)
+        self.assertNotEqual(target.knowledge_time, target.world_time)
+        refusals = " ".join(target.refusals)
+        self.assertIn("does not declare which axis carries which clock", refusals)
+
+    def test_every_refusal_is_a_check_on_an_emitted_artifact(self) -> None:
+        refusals = " ".join(self.target().refusals)
+        # USD interpolates linearly by default; a linear reading between two
+        # declarations is a measurement nothing declared.
+        self.assertIn("interpolation is not held is refused", refusals)
+        # Held carries the last value forward, so an unbacked interval is a block.
+        self.assertIn("value block, never a held sample", refusals)
+        # A withdrawal that merely stops being restated composes to the old value.
+        self.assertIn("turns must not be relied on into unchanged", refusals)
+        # USD resolves opinions; the corpus does not resolve them at all.
+        self.assertIn("Two sources that disagree are two prims", refusals)
+        self.assertIn("agreement no source declared", refusals)
+        # Crisp geometry asserts a precision the corpus may not hold.
+        self.assertIn("not emitted as geometry", refusals)
+        self.assertIn("path is derived from the EntityId", refusals)
+        self.assertIn("No candidate enters the stack", refusals)
+
+    def test_an_interval_is_two_claims_and_not_a_property_of_its_value(self) -> None:
+        # Held fabricates continuation from within the interval; silence at the
+        # end fabricates it from below. Both ends of an interval are opinions.
+        target = self.target()
+        mapping = dict(target.mapping)
+        self.assertIn("claim in its own right", mapping["validity start"])
+        self.assertIn("compose from below", mapping["validity end"])
+        refusals = " ".join(target.refusals)
+        self.assertIn("start and its end are authored opinions", refusals)
+        self.assertIn("states a duration no record declared", refusals)
+
+    def test_a_block_carries_its_reason_so_absence_has_testimony(self) -> None:
+        target = self.target()
+        self.assertIn("retraction record", dict(target.mapping)["withdrawal"])
+        refusals = " ".join(target.refusals)
+        self.assertIn("block carries its reason", refusals)
+        self.assertIn("what supersedes it", refusals)
+        self.assertIn("answering what changed and never why", refusals)
+
+    def test_disagreement_is_findable_and_not_only_encoded(self) -> None:
+        # Two prims at near-coincident positions are easy to miss; the corpus's
+        # most valuable layer does not get to hide inside the geometry.
+        target = self.target()
+        self.assertIn("disagreement discovery", [row[0] for row in target.mapping])
+        self.assertIn("disagrees with itself", dict(target.mapping)["disagreement discovery"])
+        refusals = " ".join(target.refusals)
+        self.assertIn("Disagreement is findable, not merely present", refusals)
+        self.assertIn("hides the corpus's most valuable layer", refusals)
+
+    def test_the_clock_refusal_targets_ambiguity_and_not_absence_of_dynamics(self) -> None:
+        # One release and one time sample is a static snapshot, not a stage
+        # missing a clock: it declares both axes and puts one value on each.
+        # What is refused is a stage a consumer would have to guess about.
+        refusals = " ".join(self.target().refusals)
+        self.assertIn("does not declare which axis carries which clock", refusals)
+        self.assertIn("One release and one time sample is not the refused case", refusals)
+        self.assertIn("static snapshot", refusals)
+        self.assertIn("consumer must guess about", refusals)
+
+    def test_the_mapping_is_data_with_one_row_per_concept(self) -> None:
+        target = self.target()
+        concepts = [row[0] for row in target.mapping]
+        self.assertEqual(len(concepts), len(set(concepts)))
+        for row in target.mapping:
+            self.assertEqual(len(row), 2)
+            self.assertTrue(row[0] and row[1])
+        for concept in ("entity", "quantity", "release", "as-of reading",
+                        "withdrawal", "disagreement", "uncertainty"):
+            self.assertIn(concept, concepts)
+        self.assertIn("truncated", dict(target.mapping)["as-of reading"])
+
+    def test_a_target_reads_as_a_target_and_never_as_a_mode(self) -> None:
+        # gat-projection-spec-v1 is the contract every surface reads, so a
+        # target is added without touching it: same version, and a reader
+        # dispatching on "mode" can never match a target by accident.
+        record = self.target().to_dict()
+        self.assertEqual(record["version"], PROJECTION_SPEC_VERSION)
+        self.assertIs(record["mutates_source"], False)
+        self.assertNotIn("mode", record)
+        self.assertEqual(
+            set(record),
+            {"version", "target", "consumer", "question", "surface_class", "source",
+             "transformation", "meaning", "loss", "identity", "frame", "metric",
+             "knowledge_time", "world_time", "mapping", "refusals", "availability",
+             "reason", "blocked_on", "mutates_source"},
+        )
+        # The declared fields survive JSON without becoming prose.
+        again = json.loads(json.dumps(record))
+        self.assertEqual(again["mapping"][0], list(self.target().mapping[0]))
+        self.assertEqual(len(again["refusals"]), len(self.target().refusals))
+
+    def test_the_carrier_is_not_the_scene(self) -> None:
+        # gat.adapters.openusd already writes a stage. It is safe because it
+        # asks USD to resolve nothing; a composed scene asks it to resolve
+        # everything, so the two are separate artifacts.
+        self.assertIn("/GAT/State", USD_CARRIER_IS_NOT_A_SCENE)
+        self.assertIn("/GAT/View", USD_CARRIER_IS_NOT_A_SCENE)
+        self.assertIn("no sublayer stack", USD_CARRIER_IS_NOT_A_SCENE)
+        self.assertIn("resolve nothing", USD_CARRIER_IS_NOT_A_SCENE)
+        self.assertIn("different artifact", USD_CARRIER_IS_NOT_A_SCENE)
 
 
 class GraphPayloadTests(unittest.TestCase):
@@ -216,6 +370,8 @@ class StatePayloadTests(unittest.TestCase):
         }
         self.assertEqual(state_ids, graph_ids)
         self.assertTrue(viewer_ids <= state_ids)
+        self.assertEqual(self.state["frame"]["id"], "model")
+        self.assertEqual(self.state["frame"], viewer_payload(self.world, n=0)["frame"])
         self.assertIn(WALL_PARTY, viewer_ids)
         self.assertEqual(self.state["world_digest"], self.world.digest())
 
@@ -288,6 +444,12 @@ class WorkbenchDocumentTests(unittest.TestCase):
         self.assertEqual(self.payload["decision"]["disposition"], "REJECT")
         self.assertEqual(self.payload["decision"]["subjects"], ["Wall-Party"])
         self.assertEqual(self.payload["structure"]["world_digest"], self.world.digest())
+        # Targets ride beside the modes, and adding one changed no mode.
+        self.assertEqual([t["target"] for t in self.payload["targets"]],
+                         [t.target for t in PROJECTION_TARGETS])
+        self.assertEqual([m["mode"] for m in self.payload["modes"]], list(MODES))
+        self.assertTrue(all(t["availability"] == RESERVED for t in self.payload["targets"]))
+        self.assertTrue(all("mode" not in t for t in self.payload["targets"]))
 
     def test_document_is_one_offline_file(self) -> None:
         self.assertTrue(self.html.startswith("<!doctype html>"))
@@ -299,6 +461,15 @@ class WorkbenchDocumentTests(unittest.TestCase):
         self.assertIn(MESSAGE_FORMAT, self.html)
         self.assertIn(READ_ONLY_FOOTER, self.html)
         self.assertIn(NON_AUTHORIZING_FOOTER, self.html)
+        self.assertIn("frame model (m, +Z up, no CRS)", self.html)
+
+    def test_hidden_panels_are_not_laid_out(self) -> None:
+        # The STRUCTURE panel is a grid; without an explicit [hidden] rule that
+        # grid rule outranks the browser's, the hidden panel stays laid out over
+        # the others and swallows clicks on their disclosure strips.
+        structure_rule = self.html.index('.panel[data-mode="STRUCTURE"] { padding: 0; display: grid;')
+        hidden_rule = self.html.index(".panel[hidden] { display: none; }")
+        self.assertGreater(hidden_rule, structure_rule)
         for rule in self.payload["rules"]:
             self.assertIn(rule, self.html)
 

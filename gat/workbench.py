@@ -42,6 +42,7 @@ from typing import Mapping
 from gat.engine.executor import World
 from gat.geometry.viewer import (
     VIEWER_SCENE_FORMAT,
+    frame_record,
     render_viewer_html,
     viewer_payload,
 )
@@ -110,6 +111,12 @@ class ProjectionSpec:
     loss: str
     identity: str
     frame: str
+    #: The distance model the mode's measurements use — Euclidean in a
+    #: declared Cartesian frame, geodesic on a declared ellipsoid, the
+    #: shortest path on a mesh, the shortest permitted path through a
+    #: network — or none.  Coordinates describe positions; the metric and the
+    #: permitted connections decide what a distance means.
+    metric: str
     time: str
     availability: str
     reason: str
@@ -136,7 +143,15 @@ def projection_specs(
         "presented as evidence."
     )
     one_world = "one belief state, named by its world digest"
-    model_frame = "model frame: IFC local placement in metres, Z up; no geodetic frame"
+    frame = frame_record(world)
+    model_frame = (
+        f"{frame['id']} frame: {frame['convention']}; {frame['units']}, {frame['up']} up, "
+        f"{frame['handedness']}-handed; no geodetic frame (CRS none); {frame['uncertainty']}"
+    )
+    ir_units = (
+        f"IR units as lowered: source unit {frame['source_unit']} x "
+        f"{frame['scale_to_metres']} -> m (m, m2, m3, cur)"
+    )
     return (
         ProjectionSpec(
             mode="MAP",
@@ -149,6 +164,8 @@ def projection_specs(
             loss="not assessable until a source exists",
             identity="EntityId (would be)",
             frame="none: no coordinate reference system is lowered",
+            metric="would be: geodesic distance on a declared reference ellipsoid "
+            "(none declared)",
             time="none",
             availability=UNAVAILABLE,
             reason=geographic,
@@ -164,6 +181,8 @@ def projection_specs(
             loss="not assessable until a source exists",
             identity="EntityId (would be)",
             frame="none: no geodetic datum is lowered",
+            metric="would be: geodesic distance and bearings on a declared reference "
+            "ellipsoid (none declared)",
             time="none",
             availability=UNAVAILABLE,
             reason=geographic
@@ -189,6 +208,8 @@ def projection_specs(
             "approximate boxes; exploded positions carry no information",
             identity="EntityId per element; world digest per scene",
             frame=model_frame,
+            metric=f"Euclidean distance in the {frame['id']} frame, metres; clearances "
+            "and reading offsets are straight-line, never paths",
             time=one_world + "; realizations are draws, not moments in time",
             availability=AVAILABLE,
             reason="",
@@ -207,6 +228,8 @@ def projection_specs(
             "carry no information",
             identity="EntityId",
             frame="none: a reading order",
+            metric="none: canvas distance carries no information, and no path metric is "
+            "defined — the relationship graph is not an access graph",
             time=one_world + "; the symbolic structure is immutable in v0",
             availability=AVAILABLE,
             reason="",
@@ -224,7 +247,8 @@ def projection_specs(
             loss="correlations between quantities are not shown (marginals only); "
             "rounding at six significant digits",
             identity="EntityId plus quantity name (VarId)",
-            frame="IR units as lowered (m, m2, m3, cur)",
+            frame=ir_units,
+            metric="none: quantities are per entity, in IR units",
             time=one_world,
             availability=AVAILABLE,
             reason="",
@@ -245,6 +269,7 @@ def projection_specs(
             "explicitly",
             identity="event seq and hash; prior and result world digests",
             frame="none",
+            metric="none: sequence order, not distance",
             time="ledger sequence order; wall-clock only where provenance recorded it",
             availability=AVAILABLE if ledger_bound else EMPTY,
             reason=""
@@ -267,6 +292,7 @@ def projection_specs(
             identity="request id and world digest; subjects are named by entity name, "
             "not EntityId (an engine contract, noted)",
             frame="as evaluated by the engine",
+            metric="Euclidean clearances in the frame the engine evaluated, as reported",
             time="the world the response was evaluated on",
             availability=AVAILABLE if decision_bound else EMPTY,
             reason=""
@@ -287,11 +313,179 @@ def projection_specs(
             loss="supported-product scope only (the audit's coverage boundary)",
             identity="source file sha256 and the lowered world digest",
             frame="the IFC length unit as audited",
+            metric="none",
             time="the audited file version",
             availability=AVAILABLE if audit_bound else EMPTY,
             reason="" if audit_bound else (audit_reason or "No IFC audit is bound."),
         ),
     )
+
+
+RESERVED = "reserved"  # the target is defined here; what it needs does not exist yet
+
+
+@dataclass(frozen=True)
+class ProjectionTarget:
+    """Where a projection is written when the surface is another program
+    rather than a screen.
+
+    Same grammar as a :class:`ProjectionSpec` — source, transformation,
+    meaning, loss, identity, frame, metric — with the two clocks named
+    separately, because a target with one time axis will otherwise be read
+    as having one clock.  The mapping into the target's own vocabulary is
+    data, one row per mapped concept, and every refusal is a check that
+    must hold of an emitted artifact.  A target is reserved until the
+    things in ``blocked_on`` exist; nothing is emitted from a reservation.
+    """
+
+    target: str
+    consumer: str
+    question: str
+    surface_class: str
+    source: str
+    transformation: str
+    meaning: str
+    loss: str
+    identity: str
+    frame: str
+    metric: str
+    #: How each clock is carried in the target's own axes, named separately.
+    knowledge_time: str
+    world_time: str
+    #: corpus concept -> target concept.
+    mapping: tuple[tuple[str, str], ...]
+    #: Checks on an emitted artifact.  Each is a refusal when it does not hold.
+    refusals: tuple[str, ...]
+    availability: str
+    reason: str
+    #: What must exist before this target can stop being reserved.
+    blocked_on: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, object]:
+        payload = asdict(self)
+        payload["mapping"] = [list(row) for row in self.mapping]
+        payload["refusals"] = list(self.refusals)
+        payload["blocked_on"] = list(self.blocked_on)
+        return {"version": PROJECTION_SPEC_VERSION, **payload, "mutates_source": False}
+
+
+#: Targets are additive: a new one is declared here and changes no mode.
+#: ``gat-projection-spec-v1`` is the contract every surface reads, so it is
+#: versioned like an ABI — a target may be added, never at the cost of a
+#: field an existing reader depends on.
+PROJECTION_TARGETS = (
+    ProjectionTarget(
+        target="USD_STAGE",
+        consumer="an OpenUSD consumer: a renderer, a simulator, another authoring tool",
+        question="What did this corpus hold, as a scene another program can compose?",
+        surface_class="interchange artifact (not a screen, not a carrier)",
+        source="the admitted state of one or more corpus releases",
+        transformation="entities and their quantities lowered to prims and attributes, "
+        "one sublayer per release, composed by the consumer's own USD runtime",
+        meaning="a scene that states what the corpus admitted, at a named knowledge "
+        "instant, about a named world instant — and states nothing else",
+        loss="a composed stage carries the values and not the reasoning: the factors, "
+        "the posterior and the decision that produced a quantity do not survive "
+        "into a prim, and a consumer reading only the stage cannot re-derive them",
+        identity="prim path from the EntityId; the release digest on its own layer",
+        frame="the declared model frame; no CRS, so no georeferenced placement",
+        metric="Euclidean in the declared model frame; USD states no distance of its own",
+        knowledge_time="the sublayer stack, one layer per release in release order; "
+        "an as-of reading is the stack truncated after that release",
+        world_time="the stage time axis, carrying each quantity's validity",
+        mapping=(
+            ("entity", "prim at a path derived from the EntityId, never from a display name"),
+            ("quantity", "time-sampled attribute on the world-time axis"),
+            ("relationship", "USD relationship carrying the asserting record's id"),
+            ("release", "one sublayer, tagged with the release identifier and its digest"),
+            ("as-of reading", "the sublayer stack truncated after that release"),
+            ("validity interval", "time samples bounding the interval, held between them"),
+            ("validity start", "an authored time sample at the instant validity begins; "
+             "the start is a claim in its own right, not a property of the value"),
+            ("validity end", "an authored value block at the instant validity ends; the "
+             "end is a claim too, and silence after it would compose from below"),
+            ("withdrawal", "an authored value block in the withdrawing release's layer, "
+             "carrying the retraction record: who withdrew it, at which knowledge "
+             "instant, and what supersedes it"),
+            ("disagreement", "one prim per declaring source; never one composed value"),
+            ("disagreement discovery", "a named collection of the prims that disagree, so "
+             "a reader can ask where the scene disagrees with itself"),
+            ("uncertainty", "declared geometry on the prim, not metadata alone"),
+            ("provenance and rights", "custom metadata on every prim carrying a value"),
+        ),
+        refusals=(
+            "A stage whose interpolation is not held is refused. USD interpolates time "
+            "samples linearly by default, and a linear reading between two declared "
+            "values is a measurement no source ever declared.",
+            "An interval no record backs is an authored value block, never a held "
+            "sample. Held carries the last value forward, which would state that a "
+            "declaration continued after it stopped.",
+            "A withdrawn record is blocked in the withdrawing release's layer. A "
+            "withdrawal that merely stops being restated composes to the previous "
+            "layer's value, which turns must not be relied on into unchanged.",
+            "The block carries its reason: the retraction record, its knowledge instant "
+            "and what supersedes it. A block without that shows an absence with no "
+            "testimony behind it, answering what changed and never why.",
+            "An interval's start and its end are authored opinions, not properties of "
+            "the value between them. A value without an authored start, or an interval "
+            "left to end in silence, states a duration no record declared.",
+            "Two sources that disagree are two prims. USD resolves opinions to the "
+            "strongest; the corpus does not resolve them at all, and one composed "
+            "value would state an agreement no source declared.",
+            "Disagreement is findable, not merely present. Two prims at near-coincident "
+            "positions are easy to miss, so the stage names the collection of prims that "
+            "disagree; encoding disagreement without a way to ask for it hides the "
+            "corpus's most valuable layer inside its geometry.",
+            "A quantity whose uncertainty the stage cannot carry is not emitted as "
+            "geometry. Crisp geometry asserts a precision, and USD has no native "
+            "uncertainty, so the encoding is declared or the prim is left out.",
+            "A prim path is derived from the EntityId. A renamed entity keeps its "
+            "path, and two entities never share one.",
+            "A stage that does not declare which axis carries which clock is refused. "
+            "One release and one time sample is not the refused case: a static snapshot "
+            "declares both axes and puts one value on each. What is refused is a stage a "
+            "consumer must guess about, where the time code reads as the only time "
+            "there is.",
+            "No candidate enters the stack. An unadmitted extraction is not a weak "
+            "opinion; it is not an opinion.",
+        ),
+        availability=RESERVED,
+        reason="Nothing emits this target. It is declared so that the surfaces, the "
+        "engine and a consumer agree what it would have to mean before anything "
+        "writes one.",
+        blocked_on=(
+            "A released convention for carrying uncertainty into a prim. "
+            "gat-opening-fit-v1 carries pose sigmas per body; nothing binds them to "
+            "geometry, and a stage without that binding would render a precision the "
+            "corpus does not hold.",
+            "A geodetic frame in the IR. The lowered world declares a model frame and "
+            "no CRS, so a consumer expecting a georeferenced stage would be reading a "
+            "placement that is not there.",
+            "A release identifier and digest the layer can carry, so that truncating "
+            "the stack is a stated as-of reading rather than a file-ordering accident.",
+            "A second release to stack. One release is one layer, and a stack of one "
+            "demonstrates none of the composition this target exists to define.",
+        ),
+    ),
+)
+
+#: The carrier is not this target, and the distinction is the point.
+#: ``gat.adapters.openusd`` already writes a USD stage: ``/GAT/State`` holds
+#: the snapshot and ledger as prims, relationships and numeric arrays, and
+#: ``/GAT/View`` holds disposable derived geometry.  It is safe precisely
+#: because it never asks USD to resolve opinions — it round-trips one world
+#: at one digest, and composition decides nothing.  A scene target is the
+#: other thing: many releases, composed by the consumer, where composition
+#: decides everything.  Reserving it separately keeps a carrier that must
+#: round-trip exactly from being confused with a scene that must compose
+#: honestly.
+USD_CARRIER_IS_NOT_A_SCENE = (
+    "gat.adapters.openusd writes /GAT/State as an exact carrier of one world "
+    "and /GAT/View as derived geometry; it uses no sublayer stack, no time "
+    "samples and no value blocks, and asks USD to resolve nothing. The "
+    "USD_STAGE target is a composed scene over several releases and is a "
+    "different artifact with different refusals."
+)
 
 
 def graph_payload(world: World) -> dict[str, object]:
@@ -384,6 +578,7 @@ def state_payload(world: World) -> dict[str, object]:
     meta = dict(module.meta)
     return {
         "world_digest": world.digest(),
+        "frame": frame_record(world),
         "entities": entities,
         "raw": len(module.raw_vars()),
         "derived": len(module.derived_vars()),
@@ -444,6 +639,7 @@ def workbench_payload(
         "world_digest": world.digest(),
         "rules": list(_RULES),
         "modes": [spec.to_dict() for spec in specs],
+        "targets": [target.to_dict() for target in PROJECTION_TARGETS],
         "structure": scene,
         "graph": graph_payload(world),
         "state": state_payload(world),
@@ -491,6 +687,7 @@ def render_workbench_html(
             ("information loss", spec["loss"]),
             ("identity", spec["identity"]),
             ("frame", spec["frame"]),
+            ("metric", spec["metric"]),
             ("time", spec["time"]),
             ("availability", spec["availability"]),
         ]
@@ -580,6 +777,7 @@ def render_workbench_html(
         for mode in MODES
     )
     decision = payload["decision"]
+    frame = payload["state"]["frame"]
     decision_badge = (
         f'<span class="badge" style="background:{disposition_hex(decision["disposition"])}">'
         f"{esc(decision['disposition'])}</span> {esc(decision['headline'].split(': ', 1)[-1])}"
@@ -588,6 +786,10 @@ def render_workbench_html(
     )
     rules = " · ".join(esc(rule) for rule in payload["rules"])
     specs_json = esc(json.dumps(payload["modes"], indent=1))
+    targets_json = esc(json.dumps(payload["targets"], indent=1))
+    reserved = ", ".join(
+        f"{target['target']} ({target['availability']})" for target in payload["targets"]
+    )
     title = esc(payload["model"] or "workbench")
     return (
         "<!doctype html>\n"
@@ -603,6 +805,9 @@ def render_workbench_html(
         '<div id="identity">'
         f'<span class="cell">{title}</span>'
         f'<span class="cell">world {_digest(payload["world_digest"])}</span>'
+        f'<span class="cell" title="{esc(frame["convention"])}">frame {esc(frame["id"])} '
+        f'({esc(frame["units"])}, {esc(frame["up"])} up, '
+        f'{"no CRS" if frame["crs"] is None else esc(str(frame["crs"]))})</span>'
         f'<span class="cell" id="decision-cell">{decision_badge}</span>'
         '<span class="cell" id="selection-cell"><span class="muted">nothing selected</span></span>'
         "</div>\n"
@@ -613,6 +818,10 @@ def render_workbench_html(
         f"<p>{rules}</p>"
         f"<details><summary>ProjectionSpec ({esc(PROJECTION_SPEC_VERSION)}) for every mode"
         f"</summary><pre>{specs_json}</pre></details>"
+        f"<details><summary>Projection targets — written to another program, "
+        f"not to a screen: {esc(reserved)}</summary>"
+        f"<p>{esc(USD_CARRIER_IS_NOT_A_SCENE)}</p>"
+        f"<pre>{targets_json}</pre></details>"
         "</footer>\n"
         "</div>\n"
         f'<script id="workbench-data" type="application/json">{encoded}</script>\n'
@@ -695,6 +904,10 @@ body { overflow: hidden; }
 #panels { overflow: hidden; position: relative; }
 .panel { position: absolute; inset: 0; overflow-y: auto; padding: 1rem; box-sizing: border-box; }
 .panel[data-mode="STRUCTURE"] { padding: 0; display: grid; grid-template-rows: auto 1fr; }
+/* A hidden panel must not stay laid out: the STRUCTURE grid rule above outranks the
+   browser's [hidden] rule, and an invisible absolute panel would intercept clicks
+   on every other mode's disclosure strip. */
+.panel[hidden] { display: none; }
 .panel[data-mode="STRUCTURE"] details.spec { margin: 0.6rem 1rem 0.4rem; }
 #structure { width: 100%; height: 100%; border: 0; background: #f5f4f1; }
 details.spec { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.8rem; }
