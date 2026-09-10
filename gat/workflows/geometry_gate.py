@@ -147,3 +147,8 @@ def evaluate_acceptance_case(
         evidence_requests=tuple(generated),
         insufficient_geometry_check_ids=insufficient,
     )
+
+
+import gat.workflows.acceptance as _acceptance_module
+
+_acceptance_module.evaluate_acceptance_case = evaluate_acceptance_case  # type: ignore[misc]
