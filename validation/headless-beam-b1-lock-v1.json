@@ -1,0 +1,15 @@
+{
+  "format": "gat-headless-beam-lock-v1",
+  "request_id": "beam-b1-lock-v1",
+  "operation": "beam_assurance",
+  "disposition": "VIOLATED",
+  "prior_verdict": "SATISFIED",
+  "revised_verdict": "VIOLATED",
+  "prior_world_digest": "34626a4da11d2e6289cd2b5592396edc6d2e6bebf2b301057ede6988986486c1",
+  "revised_world_digest": "4527394c888ca06b5b781b87dcf741a937ef1fbede675e90405c5320849c7a0b",
+  "beam_global_id": "GATBEAMELEMENT00000100",
+  "independent_oracle_id": "aisc-v16-example-f1-1b-lrfd-v1",
+  "may_authorize": false,
+  "certificate_signature_verified": false,
+  "issuer_trust_verified": false
+}

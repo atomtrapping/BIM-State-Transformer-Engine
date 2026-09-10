@@ -1,0 +1,36 @@
+{
+  "format": "gat-ifcopenshell-identity-diff-v1",
+  "models": [
+    {
+      "gat_beam_count": 1,
+      "geometry_authority": "INSUFFICIENT",
+      "ifcopenshell_beam_count": 1,
+      "ifcopenshell_schema": "IFC4",
+      "in_both": ["GATBEAMELEMENT00000100"],
+      "only_in_gat": [],
+      "only_in_ifcopenshell": [],
+      "path": "beam_model.ifc"
+    },
+    {
+      "gat_beam_count": 0,
+      "geometry_authority": "INSUFFICIENT",
+      "ifcopenshell_beam_count": 0,
+      "ifcopenshell_schema": "IFC4",
+      "in_both": [],
+      "only_in_gat": [],
+      "only_in_ifcopenshell": [],
+      "path": "buildingSMART-wall-opening-window.ifc"
+    },
+    {
+      "gat_beam_count": 0,
+      "geometry_authority": "INSUFFICIENT",
+      "ifcopenshell_beam_count": 0,
+      "ifcopenshell_schema": "IFC4",
+      "in_both": [],
+      "only_in_gat": [],
+      "only_in_ifcopenshell": [],
+      "path": "buildingSMART-PCERT-Building-Architecture.ifc"
+    }
+  ],
+  "note": "Beam GlobalId comparison only. IfcOpenShell does not become quantity or solid authority. The two small public files contain no IfcBeam."
+}
