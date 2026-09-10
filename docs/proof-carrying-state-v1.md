@@ -1,4 +1,9 @@
-# GAT proof-carrying state-transition manifest v1
+# Replayable transition commitment (optional attested arithmetic) v1
+
+Historical filename: `proof-carrying-state-v1.md`. The artifact is a
+**replayable transition commitment** plus an optional bounded arithmetic
+guest. It is not a proof that the building, the Gaussian update, or the
+observations are correct.
 
 ## Purpose
 
@@ -29,7 +34,7 @@ The ledger and proof manifest have different jobs:
 |---|---|
 | Execution ledger | Hash-chained history that a compatible GAT runtime can replay |
 | OpenUSD signature | Identity-bound publication of an exact snapshot and ledger head |
-| Proof manifest | Exact public statement and proof-artifact commitment for one accepted transition |
+| Transition commitment | Exact public statement and proof-artifact commitment for one accepted transition |
 | Backend verifier | Whether the external cryptographic proof verifies |
 | Engineering validation | Whether the proved program and assumptions were suitable |
 

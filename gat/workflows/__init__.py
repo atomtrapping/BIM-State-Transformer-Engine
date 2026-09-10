@@ -18,15 +18,16 @@ from gat.workflows.acceptance import (
     clearance_evidence_request,
     decision_evidence_request,
     difference_check,
-    evaluate_acceptance_case,
     minimum_check,
 )
+from gat.workflows.geometry_gate import evaluate_acceptance_case
 from gat.workflows.change_impact import (
     ChangeDisposition,
     ChangeImpactReport,
     VariableImpact,
     preview_change,
 )
+from gat.workflows.geometry_authority import GeometryAuthority
 
 __all__ = [
     "AcceptanceCase",
@@ -41,6 +42,7 @@ __all__ = [
     "DifferenceDecision",
     "EvidenceReceipt",
     "EvidenceRequest",
+    "GeometryAuthority",
     "VariableImpact",
     "WorkflowKind",
     "acceptance_check_dict",

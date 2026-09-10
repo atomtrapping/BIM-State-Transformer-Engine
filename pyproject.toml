@@ -28,9 +28,10 @@ gat-ifc-audit = "gat.cli:ifc_audit_main"
 
 [project.optional-dependencies]
 openusd = ["usd-core>=26.8,<27", "cryptography>=40"]
+ifcopenshell = ["ifcopenshell>=0.8"]
 
 [project.urls]
-Repository = "https://github.com/notationsystems/BIM-State-Transformer"
+Repository = "https://github.com/giasonpooni/BIM-State-Transformer-Engine-WIP"
 
 [tool.setuptools.packages.find]
 include = ["gat*"]
