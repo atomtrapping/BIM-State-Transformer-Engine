@@ -1,0 +1,51 @@
+# GAT kernel freeze v1
+
+Status: project convention. Not a feature freeze of bugs.
+
+## Why
+
+v0 already answers the original milestone: when one architectural parameter
+changes, GAT can transform state and propagate dependents through mandatory
+verification. Additional layers are useful only when they change a
+disposition, a world digest, or a replay on the construction-acceptance
+slice.
+
+## Kernel
+
+These modules are the product surface. Changes here need tests that speak
+the decision contract (`SATISFIED` / `VIOLATED` / `UNRESOLVED` and
+`ACCEPT` / `REJECT` / `REQUEST_EVIDENCE`).
+
+- `gat/ir/` — declarative architectural IR
+- `gat/gaussian/` — raw belief and full view
+- `gat/engine/propagate.py`, `transform.py`, `verify.py`, `executor.py`
+- `gat/engine/decision.py`, `gat/engine/active_inference.py`
+- `gat/evidence.py`
+- `gat/workflows/acceptance.py`, `gat/workflows/change_impact.py`
+- `gat/ledger.py`, `gat/state_snapshot.py`
+- `gat/adapters/ifc/` — fail-closed quantities, placements, beam status
+- `gat/headless.py` — read-only JSON boundary
+- `gat/engineering/` — bounded AISC F2-1 beam chain
+
+## Satellites
+
+These may exist, demo, and test, but they are not allowed to block a kernel
+release or expand the public claim.
+
+- `gat/geometry/attention.py` — deterministic kernel message passing
+- splat PLY export and viewer cosmetics
+- Blender sidebar coloring
+- SP1 guest packaging and any proving service
+- temporal process demos beyond the linear-Gaussian forecast already used
+  by the decision slice
+
+## Rule
+
+If a change does not alter a disposition, digest, or replay on
+
+1. opening / prefabrication fit,
+2. as-built clearance,
+3. beam certificate → capacity verdict,
+4. design-change / RFI preview,
+
+it belongs on a satellite branch.

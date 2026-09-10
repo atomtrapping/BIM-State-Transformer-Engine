@@ -1,0 +1,41 @@
+{
+  "format": "gat-acceptance-outcome-example-v1",
+  "note": "Illustrative shape of an opening-fit disposition. Digests are placeholders and will not verify.",
+  "case_id": "opening-fit-demo",
+  "workflow": "OPENING_VERIFICATION",
+  "subject": "Door-1 into Opening-1",
+  "policy_id": "gat-safe-acceptance-v1",
+  "disposition": "REQUEST_EVIDENCE",
+  "may_authorize": false,
+  "reasons": [
+    "satisfied checks lack verified evidence for this exact world"
+  ],
+  "checks": [
+    {
+      "check_id": "width",
+      "kind": "DIFFERENCE",
+      "verdict": "SATISFIED",
+      "geometry_authority": "QUANTITY_ONLY",
+      "confidence": 0.95
+    },
+    {
+      "check_id": "height",
+      "kind": "DIFFERENCE",
+      "verdict": "SATISFIED",
+      "geometry_authority": "QUANTITY_ONLY",
+      "confidence": 0.95
+    }
+  ],
+  "evidence_requests": [
+    {
+      "check_id": "width",
+      "action": "ACQUIRE_CALIBRATED_EVIDENCE",
+      "reason": "verified as-built evidence is required before acceptance"
+    },
+    {
+      "check_id": "height",
+      "action": "ACQUIRE_CALIBRATED_EVIDENCE",
+      "reason": "verified as-built evidence is required before acceptance"
+    }
+  ]
+}
