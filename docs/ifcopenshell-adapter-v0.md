@@ -28,5 +28,7 @@ not a replacement religion.
 
 ## v0 action
 
-This document and the optional dependency extra are the whole delivery.
-No IfcOpenShell import is required to install or test the kernel.
+`gat/adapters/ifcopenshell_adapter.py` inventories products when the extra
+is installed and otherwise fails closed. It never claims solid or section
+authority (`geometry_authority=INSUFFICIENT`). Kernel tests do not require
+the extra.
