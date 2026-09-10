@@ -1,0 +1,37 @@
+{
+  "cases": [
+    {
+      "dense_covariance_entries": 576,
+      "id": "office-demo",
+      "path": "gat/demo/model.ifc",
+      "pipeline_ready": true,
+      "raw_variables": 24
+    },
+    {
+      "dense_covariance_entries": 16,
+      "id": "beam-b1",
+      "path": "gat/demo/beam_model.ifc",
+      "pipeline_ready": true,
+      "raw_variables": 4
+    },
+    {
+      "id": "clinic-w460x60-scoped",
+      "note": "scoped Length-only world; digest published when corpus is present",
+      "path": "buildingSMART-Clinic-Structural.ifc",
+      "pipeline_ready": true,
+      "scope": ["2Uhw1he2z3UO$DBmBugLyy"]
+    },
+    {
+      "id": "buildingsmart-wall-opening-window",
+      "note": "audit-only; missing quantities",
+      "pipeline_ready": false
+    },
+    {
+      "id": "schependomlaan-as-planned",
+      "note": "65MB audit-only baseline; not lowered in this slice",
+      "pipeline_ready": false
+    }
+  ],
+  "format": "gat-benchmark-v1",
+  "oracle": "dense-float64"
+}

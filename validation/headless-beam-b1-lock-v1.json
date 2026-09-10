@@ -10,6 +10,6 @@
   "beam_global_id": "GATBEAMELEMENT00000100",
   "independent_oracle_id": "aisc-v16-example-f1-1b-lrfd-v1",
   "may_authorize": false,
-  "certificate_signature_verified": false,
+  "certificate_signature_verified": true,
   "issuer_trust_verified": false
 }

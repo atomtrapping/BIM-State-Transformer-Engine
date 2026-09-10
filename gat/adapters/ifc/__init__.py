@@ -1,3 +1,4 @@
+from gat.adapters.ifc.scope import IfcLoweringScope
 from gat.adapters.ifc.beam_geometry import (
     BEAM_GEOMETRY_FORMAT,
     BEAM_GEOMETRY_METHOD,
@@ -9,6 +10,7 @@ from gat.adapters.ifc.beam_geometry import (
 )
 
 __all__ = [
+    "IfcLoweringScope",
     "BEAM_GEOMETRY_FORMAT",
     "BEAM_GEOMETRY_METHOD",
     "BeamGeometryResult",
