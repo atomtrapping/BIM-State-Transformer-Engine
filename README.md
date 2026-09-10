@@ -60,11 +60,13 @@ prints the operational contract:
 - explicit design-review policy → `ACCEPT` as a recommendation, not an approval
 - RFI preview mutates nothing
 
-Live dispositions from the shipped demo IFC (not an architecture table):
+Live dispositions (not an architecture table):
 
 - [`validation/opening-fit-disposition-v1.json`](validation/opening-fit-disposition-v1.json) — `REQUEST_EVIDENCE`
 - [`validation/opening-fit-design-review-disposition-v1.json`](validation/opening-fit-design-review-disposition-v1.json) — design-review `ACCEPT`
 - [`validation/beam-b1-disposition-v1.json`](validation/beam-b1-disposition-v1.json) — Beam-B1 `SATISFIED` → `VIOLATED` after the material certificate
+- [`validation/headless-beam-b1-lock-v1.json`](validation/headless-beam-b1-lock-v1.json) — same chain through `gat-headless`
+- [`validation/clinic-w460x60-disposition-v1.json`](validation/clinic-w460x60-disposition-v1.json) — clinic W460X60 is `SWEPT_SOLID` and still `REQUEST_EVIDENCE` (file lowering blocked)
 
 ```python
 from gat import GatSession, ObserveQuantity, SetParameter
@@ -122,6 +124,5 @@ Not Revit, Archicad, CAD, a renderer, an LLM, a generic Gaussian package,
 FEM, IFC, or a twin platform. It is a computational layer that can sit
 between those representations and a decision.
 
-Repository: [giasonpooni/BIM-State-Transformer-Engine-WIP](https://github.com/giasonpooni/BIM-State-Transformer-Engine-WIP).
-Engine name is GAT; package is `gat-bim`. Rename the GitHub repo when you are
-ready — GitHub keeps redirects from the old URL.
+Repository: [giasonpooni/Gaussian-Architectural-Transformer](https://github.com/giasonpooni/Gaussian-Architectural-Transformer).
+Former URL `BIM-State-Transformer-Engine-WIP` redirects here.
