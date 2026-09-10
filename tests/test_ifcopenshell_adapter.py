@@ -28,6 +28,20 @@ class IfcOpenShellAdapterTests(unittest.TestCase):
         self.assertGreaterEqual(inventory.product_count, 1)
         self.assertEqual(inventory.geometry_authority, "INSUFFICIENT")
 
+    def test_beam_model_global_ids_match_when_ifcopenshell_is_present(self) -> None:
+        if not ifcopenshell_available():
+            self.skipTest("ifcopenshell extra is not installed")
+        from gat.adapters.ifcopenshell_adapter import identity_diff
+
+        model = os.path.join(
+            os.path.dirname(__file__), "..", "gat", "demo", "beam_model.ifc"
+        )
+        diff = identity_diff(model)
+        self.assertEqual(diff.in_both, ("GATBEAMELEMENT00000100",))
+        self.assertEqual(diff.only_in_gat, ())
+        self.assertEqual(diff.only_in_ifcopenshell, ())
+        self.assertEqual(diff.geometry_authority, "INSUFFICIENT")
+
 
 if __name__ == "__main__":
     unittest.main()
