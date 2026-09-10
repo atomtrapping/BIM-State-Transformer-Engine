@@ -48,8 +48,8 @@ python -m gat.demo.beam_assurance out/beam
 gat-headless request.json -o response.json
 ```
 
-Python 3.11+. Optional extras: `openusd`, `ifcopenshell` (planned second IFC
-adapter; not required for v0).
+Python 3.11+. Optional extras: `openusd`, `ifcopenshell` (second IFC inventory
+adapter; not the authoritative loader).
 
 ## One decision
 
@@ -60,8 +60,11 @@ prints the operational contract:
 - explicit design-review policy → `ACCEPT` as a recommendation, not an approval
 - RFI preview mutates nothing
 
-A reference shape for the JSON boundary is in
-[`validation/acceptance-disposition-example-v1.json`](validation/acceptance-disposition-example-v1.json).
+Live dispositions from the shipped demo IFC (not an architecture table):
+
+- [`validation/opening-fit-disposition-v1.json`](validation/opening-fit-disposition-v1.json) — `REQUEST_EVIDENCE`
+- [`validation/opening-fit-design-review-disposition-v1.json`](validation/opening-fit-design-review-disposition-v1.json) — design-review `ACCEPT`
+- [`validation/beam-b1-disposition-v1.json`](validation/beam-b1-disposition-v1.json) — Beam-B1 `SATISFIED` → `VIOLATED` after the material certificate
 
 ```python
 from gat import GatSession, ObserveQuantity, SetParameter
@@ -84,8 +87,8 @@ session.export_ifc("out/model_transformed.ifc")
   evidence (`SCAN_GMM`) or a later solid adapter.
 - A ledger replay proves history on a compatible runtime. An unsigned chain
   does not prove publisher identity.
-- A proof manifest binds one accepted transition and, when present, a
-  **bounded fixed-point arithmetic guest**. It does not prove the Gaussian
+- A replayable transition commitment binds one accepted step and, when present,
+  a **bounded fixed-point arithmetic guest**. It does not prove the Gaussian
   update, the observations, or that the building is safe.
 - Determinism is same-platform byte identity.
 
@@ -109,7 +112,7 @@ the acceptance / beam / RFI slice. See [`docs/kernel-v1.md`](docs/kernel-v1.md).
 - [`docs/kernel-v1.md`](docs/kernel-v1.md)
 - [`docs/sparse-belief-v1.md`](docs/sparse-belief-v1.md)
 - [`docs/ifcopenshell-adapter-v0.md`](docs/ifcopenshell-adapter-v0.md)
-- [`docs/proof-carrying-state-v1.md`](docs/proof-carrying-state-v1.md)
+- [`docs/proof-carrying-state-v1.md`](docs/proof-carrying-state-v1.md) — replayable transition commitment
 - [`docs/workflow-deployment-v1.md`](docs/workflow-deployment-v1.md)
 - [`docs/real-ifc-validation-v1.md`](docs/real-ifc-validation-v1.md)
 
@@ -120,5 +123,5 @@ FEM, IFC, or a twin platform. It is a computational layer that can sit
 between those representations and a decision.
 
 Repository: [giasonpooni/BIM-State-Transformer-Engine-WIP](https://github.com/giasonpooni/BIM-State-Transformer-Engine-WIP).
-The engine name is GAT; a shorter repository name can follow without changing
-the package (`gat-bim`).
+Engine name is GAT; package is `gat-bim`. Rename the GitHub repo when you are
+ready — GitHub keeps redirects from the old URL.
