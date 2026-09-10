@@ -4,6 +4,16 @@ from __future__ import annotations
 
 import unittest
 
+from gat.engine.decision import DecisionVerdict
+from gat.workflows.acceptance import (
+    AcceptanceCase,
+    AcceptanceCheck,
+    AcceptanceCheckKind,
+    AcceptanceDisposition,
+    AcceptancePolicy,
+    WorkflowKind,
+)
+from gat.workflows.geometry_gate import evaluate_acceptance_case
 from gat.workflows.geometry_authority import (
     GeometryAuthority,
     authority_from_beam_status,
@@ -38,6 +48,36 @@ class GeometryAuthorityTests(unittest.TestCase):
         )
         self.assertFalse(
             geometry_sufficient("MINIMUM", GeometryAuthority.LENGTH_ONLY)
+        )
+
+    def test_evaluate_refuses_gaussian_proxy_clearance(self) -> None:
+        check = AcceptanceCheck(
+            "route-clearance",
+            AcceptanceCheckKind.CLEARANCE,
+            "duct",
+            DecisionVerdict.SATISFIED,
+            0.95,
+            0.99,
+            0.99,
+            "a" * 64,
+            details={"geometry_authority": "GAUSSIAN_PROXY"},
+        )
+        outcome = evaluate_acceptance_case(
+            AcceptanceCase(
+                "route-1",
+                WorkflowKind.AS_BUILT_CLEARANCE,
+                "duct",
+                (check,),
+            ),
+            policy=AcceptancePolicy(
+                "design-review-v1",
+                require_verified_evidence_for_accept=False,
+            ),
+        )
+        self.assertEqual(outcome.disposition, AcceptanceDisposition.REQUEST_EVIDENCE)
+        self.assertEqual(outcome.insufficient_geometry_check_ids, ("route-clearance",))
+        self.assertEqual(
+            outcome.to_dict()["checks"][0]["geometry_authority"], "GAUSSIAN_PROXY"
         )
 
     def test_complete_swept_solid_maps_to_swept_solid(self) -> None:

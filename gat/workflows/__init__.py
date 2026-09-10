@@ -18,9 +18,9 @@ from gat.workflows.acceptance import (
     clearance_evidence_request,
     decision_evidence_request,
     difference_check,
-    evaluate_acceptance_case,
     minimum_check,
 )
+from gat.workflows.geometry_gate import evaluate_acceptance_case
 from gat.workflows.change_impact import (
     ChangeDisposition,
     ChangeImpactReport,
