@@ -1,0 +1,45 @@
+{
+  "cases": [
+    {
+      "dense_covariance_entries": 576,
+      "id": "office-demo",
+      "path": "gat/demo/model.ifc",
+      "pipeline_ready": true,
+      "raw_variables": 24,
+      "seconds": 0.01314333400000578,
+      "world_digest": "16c2d476539479a4afcee53d6748d94ec0b735eee8f7376340f2f8221343f0c7"
+    },
+    {
+      "dense_covariance_entries": 16,
+      "id": "beam-b1",
+      "path": "gat/demo/beam_model.ifc",
+      "pipeline_ready": true,
+      "raw_variables": 4,
+      "seconds": 0.002926833000003626,
+      "world_digest": "95bfa2028e26e29f28b92e2d15089117bb8fb82f1698be8a8d30ce9a56a6422c"
+    },
+    {
+      "dense_covariance_entries": 1,
+      "id": "clinic-w460x60-scoped",
+      "path": "buildingSMART-Clinic-Structural.ifc",
+      "pipeline_ready": true,
+      "raw_variables": 1,
+      "scope": ["2Uhw1he2z3UO$DBmBugLyy"],
+      "seconds": 12.15234099700001,
+      "world_digest": "ace92b0f6f7f6e02a9742a956b79ef355049eeaa1742148e327b7c57cdb32b7b"
+    },
+    {
+      "error_type": "LoweringError",
+      "id": "buildingsmart-wall-opening-window",
+      "note": "audit-only; missing ClearHeight",
+      "pipeline_ready": false
+    },
+    {
+      "id": "schependomlaan-as-planned",
+      "note": "65MB audit-only baseline; not lowered in this slice",
+      "pipeline_ready": false
+    }
+  ],
+  "format": "gat-benchmark-v1",
+  "oracle": "dense-float64"
+}
