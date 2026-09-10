@@ -1,0 +1,33 @@
+{
+  "format": "gat-outcome-log-v1",
+  "note": "Human decisions are recorded only when a reviewer actually made one. Empty match cells are not implicit agreement.",
+  "rows": [
+    {
+      "case_id": "opening-fit-demo",
+      "subject": "Door-1 into Opening-1",
+      "gat_disposition": "REQUEST_EVIDENCE",
+      "human_decision": null,
+      "matched": null,
+      "date": "2026-09-10",
+      "source": "validation/opening-fit-disposition-v1.json"
+    },
+    {
+      "case_id": "beam-b1-certificate",
+      "subject": "Beam-B1 factored bending",
+      "gat_disposition": "VIOLATED",
+      "human_decision": null,
+      "matched": null,
+      "date": "2026-09-10",
+      "source": "validation/headless-beam-b1-lock-v1.json"
+    },
+    {
+      "case_id": "clinic-w460x60",
+      "subject": "2Uhw1he2z3UO$DBmBugLyy",
+      "gat_disposition": "REQUEST_EVIDENCE",
+      "human_decision": null,
+      "matched": null,
+      "date": "2026-09-10",
+      "source": "validation/clinic-w460x60-disposition-v1.json"
+    }
+  ]
+}
