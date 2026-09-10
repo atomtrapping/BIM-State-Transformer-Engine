@@ -11,7 +11,6 @@ from gat.workflows.acceptance import (
     DifferenceDecision,
     EvidenceReceipt,
     EvidenceRequest,
-    GeometryAuthority,
     WorkflowKind,
     acceptance_check_dict,
     assess_difference,
@@ -28,6 +27,7 @@ from gat.workflows.change_impact import (
     VariableImpact,
     preview_change,
 )
+from gat.workflows.geometry_authority import GeometryAuthority
 
 __all__ = [
     "AcceptanceCase",
