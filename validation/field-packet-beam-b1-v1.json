@@ -1,0 +1,20 @@
+{
+  "calibration_id": "CAL-UTM-2026-08",
+  "case_id": "beam-b1-certificate",
+  "disposition": "VIOLATED",
+  "expected_prior_world_digest": "34626a4da11d2e6289cd2b5592396edc6d2e6bebf2b301057ede6988986486c1",
+  "format": "gat-field-packet-v1",
+  "note": "Fixture packet with a real HMAC over the shipped certificate bytes. Not a field lab.",
+  "quantity": "YieldStrengthMPa",
+  "result_world_digest": "4527394c888ca06b5b781b87dcf741a937ef1fbede675e90405c5320849c7a0b",
+  "signature": {
+    "algorithm": "hmac-sha256-v1",
+    "digest": "410def092b79b76b55f2a2c4b31fbc0207f42056de1eef26e04a89d105604be6",
+    "key_id": "gat-test-cert-key-v1",
+    "mac": "46b9b74f5f6b2564771082131e215d16676f420b05ab7ae89ab05b4877b087cd"
+  },
+  "signature_verified": true,
+  "source_bytes_sha256": "410def092b79b76b55f2a2c4b31fbc0207f42056de1eef26e04a89d105604be6",
+  "source_path": "gat/demo/material_certificate.json",
+  "subject_global_id": "GATBEAMELEMENT00000100"
+}
