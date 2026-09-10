@@ -1,0 +1,54 @@
+{
+  "format": "gat-clinic-beam-disposition-v1",
+  "model": {
+    "id": "buildingsmart-community-medical-dental-clinic-structural-ifc2x3",
+    "destination": "buildingSMART-Clinic-Structural.ifc",
+    "sha256": "325287b375f154dc79504c4bbf67b40c501f458f23a8c4ba13b27171e00533d8",
+    "schema": "IFC2X3",
+    "license": "CC-BY-4.0"
+  },
+  "beam": {
+    "name": "M_W-Wide Flange:W460X60:W460X60:190021",
+    "global_id": "2Uhw1he2z3UO$DBmBugLyy",
+    "step_id": 593,
+    "ifc_class": "IfcBeam",
+    "geometry_status": "COMPLETE",
+    "geometry_authority": "SWEPT_SOLID",
+    "length_m": 7.280000000000001,
+    "cross_section_area_m2": 0.007765979859632377,
+    "section_modulus_major_m3": 0.0011554783244814265,
+    "section_modulus_minor_m3": 0.00010428002975337099
+  },
+  "file_boundary": {
+    "storeys": 4,
+    "beam_candidates": 738,
+    "beam_geometry_status_counts": {
+      "COMPLETE": 277,
+      "LENGTH_ONLY": 461
+    },
+    "pipeline_ready": false,
+    "lowering_status": "BLOCKED",
+    "lowering_error_type": "LoweringError",
+    "lowering_message": "IfcWall 30URw5qYD7VfcU$zAl5aeI ('Basic Wall:Foundation - Concrete (264mm):224397') lacks required quantity 'Length'",
+    "model_issue": "current adapter requires exactly one storey; found 4"
+  },
+  "disposition": "REQUEST_EVIDENCE",
+  "may_authorize": false,
+  "reasons": [
+    "whole-file lowering is BLOCKED; GAT has no world digest for this IFC",
+    "architectural scope still requires wall/storey quantities the clinic file does not publish",
+    "no GAT_Structural opt-in and no material certificate bound to this GlobalId",
+    "derived section moduli are IFC elastic proxies and do not authorize an AISC plastic Zx check",
+    "geometry authority SWEPT_SOLID is necessary but not sufficient for ACCEPT"
+  ],
+  "contrast": {
+    "length_only_example": {
+      "name": "M_K-Series Bar Joist-Rod Web:14K1:14K1:220116",
+      "global_id": "2lH_RQeBDBG8rH6PWO_62x",
+      "geometry_status": "LENGTH_ONLY",
+      "geometry_authority": "LENGTH_ONLY",
+      "note": "surface-model body; GAT will not invent a section from the name or a bbox"
+    }
+  },
+  "note": "Measured from the pinned clinic corpus. This is a fail-closed decision, not a structural approval."
+}

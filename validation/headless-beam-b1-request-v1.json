@@ -1,0 +1,17 @@
+{
+  "format": "gat-headless-request-v1",
+  "operation": "beam_assurance",
+  "payload": {
+    "beam_name": "Beam-B1",
+    "case_id": "beam-b1-certificate",
+    "confidence": 0.95,
+    "factored_demand_n_m": 301000.0,
+    "label": "Beam-B1 factored bending",
+    "material_certificate_path": "gat/demo/material_certificate.json"
+  },
+  "request_id": "beam-b1-lock-v1",
+  "state": {
+    "kind": "ifc",
+    "path": "gat/demo/beam_model.ifc"
+  }
+}
