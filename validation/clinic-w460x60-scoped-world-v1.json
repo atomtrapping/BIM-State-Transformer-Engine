@@ -1,0 +1,10 @@
+{
+  "beam_global_id": "2Uhw1he2z3UO$DBmBugLyy",
+  "disposition": "REQUEST_EVIDENCE",
+  "format": "gat-clinic-scoped-world-v1",
+  "has_yield_strength": false,
+  "may_authorize": false,
+  "note": "Scoped lowering created a Length-only world. No GAT_Structural pset, so no AISC capacity slots.",
+  "raw_variables": 1,
+  "world_digest": "ace92b0f6f7f6e02a9742a956b79ef355049eeaa1742148e327b7c57cdb32b7b"
+}
