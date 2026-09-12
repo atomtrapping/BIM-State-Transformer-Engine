@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import math
 
+from gat.adapters.ifc.beam_geometry import derive_beam_axis_length
 from gat.adapters.ifc.parser import IfcFile, RawInstance, Ref
 from gat.adapters.ifc.reader import (
     attr,
@@ -52,8 +53,9 @@ from gat.adapters.ifc.reader import (
     resolve_placement,
 )
 from gat.adapters.ifc.schema import ANNOTATED_PRODUCT_CLASSES, PRODUCT_CLASSES
+from gat.adapters.ifc.scope import IfcLoweringScope
 from gat.adapters.ifc.units import LengthUnitContext, length_unit_context
-from gat.errors import LoweringError
+from gat.errors import GatError, LoweringError
 from gat.engineering.aisc360_22 import (
     AISC360_22_F2_LRFD_METHOD,
     AISC360_22_F2_LRFD_VALIDATION_PROFILE,
@@ -129,7 +131,19 @@ def _sigma_for(
     return default
 
 
-def lower_ifc(file: IfcFile, source: str = "<memory>") -> Module:
+def lower_ifc(
+    file: IfcFile,
+    source: str = "<memory>",
+    scope: IfcLoweringScope | None = None,
+) -> Module:
+    """Lower a parsed IFC file into the Architectural IR.
+
+    Whole-file lowering requires exactly one storey and every supported
+    product in the file.  A ``scope`` instead names the GlobalIds that may
+    become world entities; everything else stays audit-only.  Off-scope
+    dependencies never silently join the world — a scoped subject whose
+    defining parent is absent fails closed rather than inventing a prior.
+    """
     length_units = length_unit_context(file)
 
     # -- products ----------------------------------------------------------
@@ -158,6 +172,56 @@ def lower_ifc(file: IfcFile, source: str = "<memory>") -> Module:
                 canonical,
             )
 
+    # -- scope ------------------------------------------------------------
+    # Whole-file lowering takes every supported product.  A scope instead
+    # names the subjects that may become state; the rest of the file stays
+    # audit-only input.
+    derived_lengths: dict[int, float] = {}
+    scope_ids: tuple[str, ...] | None = None
+    if scope is not None:
+        available: dict[str, int] = {
+            global_id(inst): sid for sid, (_, inst, _) in products.items()
+        }
+        for sid, (inst, _, _) in annotated_candidates.items():
+            available.setdefault(global_id(inst), sid)
+        absent = sorted(
+            gid for gid in scope.include_global_ids if gid not in available
+        )
+        if absent:
+            raise LoweringError(
+                f"lowering scope names GlobalIds absent from {source}: "
+                + ", ".join(absent)
+            )
+
+        # An in-scope engineering element with no GAT contract is still a
+        # legitimate subject — as a length-only member, never as capacity
+        # state.  This is what lets a real multi-storey model yield a world.
+        for sid, (inst, canonical, marker_pset) in annotated_candidates.items():
+            gid = global_id(inst)
+            if sid in products or not scope.admits(gid):
+                continue
+            if canonical != "IfcBeam" or not scope.allow_derived_beam_length:
+                raise LoweringError(
+                    f"{canonical} {gid} carries no {marker_pset} property set "
+                    "and derived lowering is not enabled for it"
+                )
+            try:
+                axis_length, _ = derive_beam_axis_length(file, inst)
+            except GatError as exc:
+                raise LoweringError(
+                    f"{canonical} {gid} is in scope but its axis length cannot "
+                    f"be derived: {exc}"
+                ) from exc
+            products[sid] = (EntityId(canonical, gid), inst, canonical)
+            derived_lengths[sid] = axis_length
+
+        products = {
+            sid: entry
+            for sid, entry in products.items()
+            if scope.admits(entry[0].global_id)
+        }
+        scope_ids = tuple(sorted(scope.include_global_ids))
+
     step_to_eid = {sid: eid for sid, (eid, _, _) in products.items()}
     prop_map = {sid: prop_map.get(sid, []) for sid in products}
 
@@ -170,6 +234,9 @@ def lower_ifc(file: IfcFile, source: str = "<memory>") -> Module:
     openings: list[EntityId] = []
     doors: list[EntityId] = []
     beams: list[EntityId] = []
+    # Beams carrying the GAT_Structural contract; only these get AISC
+    # capacity slots.  A length-only member is a subject, not a capacity.
+    capacity_beams: list[EntityId] = []
     priced_walls: set[EntityId] = set()
 
     for sid in sorted(products):
@@ -190,6 +257,22 @@ def lower_ifc(file: IfcFile, source: str = "<memory>") -> Module:
         entity_attrs: dict[str, str | int | float] = {}
         for qname in REQUIRED_QUANTITIES.get(canonical, ()):
             if qname not in quantities:
+                if qname == "Length" and sid in derived_lengths:
+                    # No IfcQuantityLength record; the axis polyline is the
+                    # only source.  It carries no quantity step id, so the
+                    # slot has no source_ref and the writer leaves it alone.
+                    var = VarId(eid, qname)
+                    value = derived_lengths[sid]
+                    slots[qname] = QtySlot(
+                        var=var,
+                        role=Role.RAW,
+                        unit=Unit.M,
+                        prior_mu=value,
+                        prior_sigma=_sigma_for(
+                            canonical, qname, value, overrides, length_units
+                        ),
+                    )
+                    continue
                 raise LoweringError(
                     f"{canonical} {eid.global_id} ({name_of(inst)!r}) lacks "
                     f"required quantity {qname!r}"
@@ -216,7 +299,7 @@ def lower_ifc(file: IfcFile, source: str = "<memory>") -> Module:
             )
             quantity_refs[var] = qref
 
-        if canonical == "IfcBeam":
+        if canonical == "IfcBeam" and sid not in derived_lengths:
             required = {
                 "YieldStrengthMPa": Unit.MPA,
                 "PlasticSectionModulusMajorM3": Unit.M3,
@@ -314,11 +397,28 @@ def lower_ifc(file: IfcFile, source: str = "<memory>") -> Module:
             "IfcDoor": doors,
             "IfcBeam": beams,
         }[canonical].append(eid)
+        if canonical == "IfcBeam" and sid not in derived_lengths:
+            capacity_beams.append(eid)
 
-    if len(storeys) != 1:
-        raise LoweringError(f"v0 expects exactly one storey, found {len(storeys)}")
-    storey = storeys[0]
-    clear_height = VarId(storey, "ClearHeight")
+    if scope is None:
+        if len(storeys) != 1:
+            raise LoweringError(
+                f"v0 expects exactly one storey, found {len(storeys)}"
+            )
+    elif len(storeys) > 1:
+        raise LoweringError(
+            f"scoped lowering expects at most one storey, found {len(storeys)}"
+        )
+    storey = storeys[0] if storeys else None
+    clear_height = VarId(storey, "ClearHeight") if storey is not None else None
+    if clear_height is None and (walls or spaces):
+        # Wall.Height and Space.Volume are defined by the storey's shared
+        # ClearHeight.  Without it in scope there is no honest prior, so the
+        # subject set is refused rather than silently decoupled.
+        raise LoweringError(
+            "lowering scope admits walls or spaces but not the storey that "
+            "defines their ClearHeight; add the storey GlobalId to the scope"
+        )
 
     # -- relationships -----------------------------------------------------
     rels: list[Rel] = []
@@ -457,7 +557,7 @@ def lower_ifc(file: IfcFile, source: str = "<memory>") -> Module:
         )
         add_derived(space, "Volume", Unit.M3, Mul(VarRef(floor), VarRef(clear_height)))
 
-    for beam in beams:
+    for beam in capacity_beams:
         resistance_factor = float(entities[beam].attrs["resistance_factor"])
         nominal = add_derived(
             beam,
@@ -485,14 +585,16 @@ def lower_ifc(file: IfcFile, source: str = "<memory>") -> Module:
     contained_walls = sorted(
         rel.target
         for rel in rels
-        if rel.kind is RelKind.CONTAINS
+        if storey is not None
+        and rel.kind is RelKind.CONTAINS
         and rel.source == storey
         and rel.target in set(walls)
     )
     aggregated_spaces = sorted(
         rel.target
         for rel in rels
-        if rel.kind is RelKind.AGGREGATES
+        if storey is not None
+        and rel.kind is RelKind.AGGREGATES
         and rel.source == storey
         and rel.target in set(spaces)
     )
@@ -551,7 +653,7 @@ def lower_ifc(file: IfcFile, source: str = "<memory>") -> Module:
             VarRef(clear_height),
         )
         constraints.append(ExprEquals(VarId(space, "Volume"), restatement))
-    for beam in beams:
+    for beam in capacity_beams:
         resistance_factor = float(entities[beam].attrs["resistance_factor"])
         nominal_restatement = Mul(
             Const(1.0e6),
@@ -573,16 +675,26 @@ def lower_ifc(file: IfcFile, source: str = "<memory>") -> Module:
             )
         )
 
+    meta: dict[str, object] = {
+        "source": source,
+        "schema": file.schema,
+        "adapter": "gat.adapters.ifc v0",
+        "ifc_length_scale_to_metres": repr(length_units.scale_to_metres),
+        "ifc_length_unit": length_units.label,
+    }
+    if scope_ids is not None:
+        # The subject set is part of the world's identity: two worlds lowered
+        # from the same file under different scopes must not share a digest.
+        meta["lowering_scope"] = list(scope_ids)
+        if derived_lengths:
+            meta["derived_axis_length_subjects"] = sorted(
+                products[sid][0].global_id for sid in derived_lengths
+            )
+
     module = Module(
         entities=entities,
         rels=tuple(rels),
         constraints=tuple(constraints),
-        meta={
-            "source": source,
-            "schema": file.schema,
-            "adapter": "gat.adapters.ifc v0",
-            "ifc_length_scale_to_metres": repr(length_units.scale_to_metres),
-            "ifc_length_unit": length_units.label,
-        },
+        meta=meta,
     )
     return module

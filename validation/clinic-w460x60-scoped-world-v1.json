@@ -1,10 +1,20 @@
 {
   "beam_global_id": "2Uhw1he2z3UO$DBmBugLyy",
-  "disposition": "REQUEST_EVIDENCE",
+  "beam_name": "M_W-Wide Flange:W460X60:W460X60:190021",
+  "derived_axis_length_m": 7.280000000000001,
+  "derived_section_modulus_major_m3": 0.0011554783244814239,
   "format": "gat-clinic-scoped-world-v1",
+  "geometry_status": "COMPLETE",
   "has_yield_strength": false,
-  "may_authorize": false,
-  "note": "Scoped lowering created a Length-only world. No GAT_Structural pset, so no AISC capacity slots.",
+  "invariants_passed": true,
+  "may_authorize_capacity": false,
+  "module_digest": "ebe26ebc62a06a276ff92879e553a94c48fa51eacfdf877e652380db8aeff8d4",
+  "note": "Measured, not asserted. Scoped lowering of one W460X60 out of a real multi-storey IFC2X3 model. The body IS a complete swept solid, so the adapter can derive Zx from geometry -- but the beam carries no GAT_Structural property set, so no yield strength enters the world and no AISC capacity slot is synthesized. Capacity therefore cannot be checked from the model alone; it needs a material certificate. Digests are measured with source set to source_label, because the world digest includes the source string.",
   "raw_variables": 1,
-  "world_digest": "ace92b0f6f7f6e02a9742a956b79ef355049eeaa1742148e327b7c57cdb32b7b"
+  "slots": [
+    "Length"
+  ],
+  "source_ifc_sha256": "325287b375f154dc79504c4bbf67b40c501f458f23a8c4ba13b27171e00533d8",
+  "source_label": "buildingSMART-Clinic-Structural.ifc",
+  "world_digest": "06cc5d37796878ad7a81304ee97004490b58a0b61f711dc7fbaafb5993056cd2"
 }

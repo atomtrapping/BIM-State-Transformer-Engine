@@ -638,6 +638,25 @@ def _derive_beam_geometry_with_context(
     )
 
 
+def derive_beam_axis_length(
+    file: IfcFile,
+    beam: RawInstance,
+) -> tuple[float, tuple[tuple[str, int], ...]]:
+    """Derive one beam's axis length in metres, with its source references.
+
+    This is the length-only half of :func:`derive_beam_geometry`, for callers
+    that need the nominal member length as *state* rather than a provenance
+    record.  It raises :class:`~gat.errors.BeamGeometryError` when the body
+    carries no single usable ``Axis`` polyline; it never falls back to a
+    bounding box or a section-name table.
+    """
+    if beam.type_name != "IFCBEAM":
+        raise BeamGeometryError("beam axis length derivation requires IfcBeam")
+    units = length_unit_context(file)
+    representations = _shape_representations(file, beam)
+    return _axis_length(file, representations, units.scale_to_metres)
+
+
 def derive_all_beam_geometry(
     file: IfcFile,
     *,
@@ -674,5 +693,6 @@ __all__ = [
     "BeamGeometryStatus",
     "DerivedGeometryQuantity",
     "derive_all_beam_geometry",
+    "derive_beam_axis_length",
     "derive_beam_geometry",
 ]
