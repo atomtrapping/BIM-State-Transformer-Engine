@@ -91,6 +91,9 @@ session.export_ifc("out/model_transformed.ifc")
   a **bounded fixed-point arithmetic guest**. It does not prove the Gaussian
   update, the observations, or that the building is safe.
 - Determinism is same-platform byte identity.
+- A world digest identifies the model's bytes, not its path. See
+  [`docs/world-identity-v2.md`](docs/world-identity-v2.md); v1 ledgers and
+  carriers do not replay on this runtime.
 
 ## Kernel vs satellites
 
@@ -112,6 +115,7 @@ the acceptance / beam / RFI slice. See [`docs/kernel-v1.md`](docs/kernel-v1.md).
 - [`docs/kernel-v1.md`](docs/kernel-v1.md)
 - [`docs/sparse-belief-v1.md`](docs/sparse-belief-v1.md)
 - [`docs/ifcopenshell-adapter-v0.md`](docs/ifcopenshell-adapter-v0.md)
+- [`docs/world-identity-v2.md`](docs/world-identity-v2.md) — path-independent world digests
 - [`docs/proof-carrying-state-v1.md`](docs/proof-carrying-state-v1.md) — replayable transition commitment
 - [`docs/workflow-deployment-v1.md`](docs/workflow-deployment-v1.md)
 - [`docs/real-ifc-validation-v1.md`](docs/real-ifc-validation-v1.md)

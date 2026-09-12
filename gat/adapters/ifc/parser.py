@@ -18,7 +18,9 @@ Value model for instance arguments:
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
+from pathlib import Path
 
 from gat.adapters.ifc.lexer import TokKind, Token, tokenize
 from gat.errors import SpfParseError
@@ -67,6 +69,11 @@ class IfcFile:
     header: dict[str, tuple]
     instances: dict[int, RawInstance]
     schema: str
+    #: SHA-256 of the source bytes this file was parsed from.  It is the
+    #: model's identity: the same bytes read through any path produce the
+    #: same digest, which is what keeps a world digest path-independent.
+    #: Empty only for a file assembled in memory without a source.
+    content_sha256: str = ""
 
     def by_type(self, type_name: str) -> tuple[RawInstance, ...]:
         upper = type_name.upper()
@@ -213,10 +220,26 @@ class _Parser:
         raise SpfParseError(f"unexpected token {tok.value!r}", tok.line, tok.col)
 
 
-def parse_ifc(text: str) -> IfcFile:
-    return _Parser(tokenize(text)).parse_file()
+def parse_ifc(text: str, *, content_sha256: str | None = None) -> IfcFile:
+    """Parse STEP text.
+
+    ``content_sha256`` records the digest of the *bytes* the text came from.
+    When omitted it is taken over the encoded text, so an in-memory model
+    still gets a stable identity.
+    """
+    file = _Parser(tokenize(text)).parse_file()
+    file.content_sha256 = (
+        content_sha256
+        if content_sha256 is not None
+        else hashlib.sha256(text.encode("utf-8")).hexdigest()
+    )
+    return file
 
 
 def parse_ifc_file(path: str) -> IfcFile:
-    with open(path, "r", encoding="utf-8") as fh:
-        return parse_ifc(fh.read())
+    raw = Path(path).read_bytes()
+    # Decode once and normalize line endings exactly as text mode would, so
+    # the tokenizer sees what it always saw while the digest still covers
+    # the bytes on disk.
+    text = raw.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
+    return parse_ifc(text, content_sha256=hashlib.sha256(raw).hexdigest())

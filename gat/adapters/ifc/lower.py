@@ -675,20 +675,26 @@ def lower_ifc(
             )
         )
 
-    meta: dict[str, object] = {
+    # Meta values are all strings, so a module survives a snapshot or carrier
+    # round-trip as the same mapping it started as.  ``source`` is provenance
+    # and is excluded from the digest (see gat.ir.printer.PROVENANCE_META);
+    # ``source_sha256`` is what actually identifies the model.
+    meta: dict[str, str] = {
         "source": source,
         "schema": file.schema,
         "adapter": "gat.adapters.ifc v0",
         "ifc_length_scale_to_metres": repr(length_units.scale_to_metres),
         "ifc_length_unit": length_units.label,
     }
+    if file.content_sha256:
+        meta["source_sha256"] = file.content_sha256
     if scope_ids is not None:
         # The subject set is part of the world's identity: two worlds lowered
         # from the same file under different scopes must not share a digest.
-        meta["lowering_scope"] = list(scope_ids)
+        meta["lowering_scope"] = ",".join(scope_ids)
         if derived_lengths:
-            meta["derived_axis_length_subjects"] = sorted(
-                products[sid][0].global_id for sid in derived_lengths
+            meta["derived_axis_length_subjects"] = ",".join(
+                sorted(products[sid][0].global_id for sid in derived_lengths)
             )
 
     module = Module(

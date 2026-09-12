@@ -10,11 +10,9 @@ import unittest
 
 import gat.demo
 from gat.adapters.ifc.beam_geometry import derive_beam_geometry
-from gat.adapters.ifc.lower import lower_ifc
 from gat.adapters.ifc.parser import parse_ifc_file
 from gat.adapters.ifc.reader import global_id
 from gat.adapters.ifc.scope import IfcLoweringScope
-from gat.engine.executor import World
 from gat.errors import LoweringError
 from gat.session import GatSession
 
@@ -41,7 +39,7 @@ class ScopedWorldTests(unittest.TestCase):
         self.assertTrue(session.verify().passed)
         self.assertEqual(
             session.world.module.meta["lowering_scope"],
-            ["GATBEAMELEMENT00000100"],
+            "GATBEAMELEMENT00000100",
         )
 
     def test_unknown_scope_id_fails_closed(self) -> None:
@@ -99,19 +97,19 @@ class ScopedWorldTests(unittest.TestCase):
         raw = path.read_bytes()
         self.assertEqual(hashlib.sha256(raw).hexdigest(), record["source_ifc_sha256"])
 
-        # The world digest includes the source string, so the record pins the
-        # label it was measured with rather than a machine-specific path.
-        file = parse_ifc_file(str(path))
-        module = lower_ifc(
-            file,
-            source=record["source_label"],
+        # World identity is the model's bytes, so the record reproduces from
+        # whatever path the corpus was fetched to.
+        session = GatSession.load_ifc(
+            str(path),
             scope=IfcLoweringScope(frozenset({record["beam_global_id"]})),
         )
-        world = World.compile(module)
+        module = session.world.module
         self.assertEqual(module.digest(), record["module_digest"])
-        self.assertEqual(world.digest(), record["world_digest"])
-        self.assertEqual(world.binding.n_raw, record["raw_variables"])
+        self.assertEqual(session.world.digest(), record["world_digest"])
+        self.assertEqual(session.world.binding.n_raw, record["raw_variables"])
+        self.assertEqual(session.verify().passed, record["invariants_passed"])
 
+        file = parse_ifc_file(str(path))
         entity = next(iter(module.entities))
         self.assertEqual(sorted(module.entities[entity].slots), record["slots"])
         self.assertEqual(

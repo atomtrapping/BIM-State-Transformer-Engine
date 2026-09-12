@@ -256,7 +256,8 @@ class DecisionOverlayTests(unittest.TestCase):
         self.assertEqual(overlay["disposition"], "VIOLATED")
         self.assertEqual(overlay["subjects"], ["Beam-B1"])
 
-    def test_cli_loads_model_through_the_request_path_form(self) -> None:
+    def test_cli_binds_a_decision_across_path_forms(self) -> None:
+        """World identity is the model's bytes, not the caller's path string."""
         import json
 
         from gat.headless import handle_request
@@ -273,17 +274,19 @@ class DecisionOverlayTests(unittest.TestCase):
             with open(response_path, "w", encoding="utf-8") as handle:
                 json.dump(response, handle)
             out = os.path.join(tmp, "viewer.html")
-            # absolute model path + relative request path: same file, so it binds
+            # The request was answered through a relative path and the viewer
+            # is given an absolute one. Same bytes, so the decision binds.
             self.assertEqual(
                 cli_main(["view", MODEL, "-o", out, "--variations", "0",
                           "--decision", response_path, "--request", request_path]),
                 0,
             )
-            # without the request there is nothing to match against: refused with a hint
+            # And it binds without --request too: matching no longer depends on
+            # reproducing the path form the headless request happened to use.
             self.assertEqual(
                 cli_main(["view", MODEL, "-o", out, "--variations", "0",
                           "--decision", response_path]),
-                2,
+                0,
             )
 
     def test_cli_embeds_the_overlay(self) -> None:

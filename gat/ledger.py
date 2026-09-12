@@ -56,7 +56,11 @@ from gat.ids import EntityId, VarId
 
 LEDGER_FORMAT = "gat-execution-ledger"
 LEDGER_SCHEMA_VERSION = 1
-LEDGER_RUNTIME_CONTRACT = "gat-world-v1"
+# v2: world identity is path-independent. The module digest covers the
+# source content hash instead of the caller's path string, so a ledger
+# written by a v1 runtime carries digests this runtime cannot reproduce
+# and is refused on replay rather than silently re-interpreted.
+LEDGER_RUNTIME_CONTRACT = "gat-world-v2"
 LEDGER_HASH_ALGORITHM = "sha256"
 LEDGER_MAX_BYTES = 16 * 1024 * 1024
 LEDGER_MAX_EVENTS = 100_000

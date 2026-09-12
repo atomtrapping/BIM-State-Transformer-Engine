@@ -3,7 +3,12 @@
 The printer output is byte-stable for a given module: entities, slots,
 relationships, and constraints are emitted in their canonical sorted
 orders with fixed float formatting.  The module digest is the SHA-256 of
-this text, and a golden-file test pins the demo model's dump.
+this text.
+
+Identity is deliberately narrower than metadata.  Keys in
+:data:`PROVENANCE_META` describe how a module was obtained and never enter
+the digest; everything else does.  That is what makes a world digest a
+statement about *the model*, not about the caller's working directory.
 """
 
 from __future__ import annotations
@@ -17,13 +22,23 @@ from gat.ir.core import (
 )
 
 
+#: Meta keys that record *where a module came from* rather than *what it
+#: is*.  They are kept for humans and deliberately excluded from the digest
+#: text, so the same bytes lowered through a different path — a relative
+#: path, an absolute one, a basename — keep one identity.  Identity instead
+#: rides on ``source_sha256``, the digest of the source bytes themselves.
+PROVENANCE_META: frozenset[str] = frozenset({"source"})
+
+
 def _fmt(value: float) -> str:
     return repr(float(value))
 
 
 def print_module(module: Module) -> str:
-    lines: list[str] = ["gat-ir v0"]
+    lines: list[str] = ["gat-ir v1"]
     for key in sorted(module.meta):
+        if key in PROVENANCE_META:
+            continue
         lines.append(f"meta {key} = {module.meta[key]}")
 
     for eid in module.entities:
