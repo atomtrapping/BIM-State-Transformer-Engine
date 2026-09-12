@@ -28,6 +28,7 @@ from gat.engineering.beam import BeamBendingCheck, BeamBendingEvaluator
 from gat.engineering.certificate_signature import (
     TEST_KEY_ID,
     sign_certificate_bytes,
+    test_trust_store,
     verify_certificate_bytes,
 )
 from gat.engineering.material_certificate import read_material_certificate
@@ -269,7 +270,12 @@ def build_beam_records() -> dict[str, dict]:
     }
 
     certificate_bytes = CERTIFICATE.read_bytes()
-    signature = sign_certificate_bytes(certificate_bytes, key_id=TEST_KEY_ID)
+    # This repository's own fixture key, named explicitly: the packet proves
+    # the certificate bytes are unaltered, not that an issuer vouched for them.
+    trust_store = test_trust_store()
+    signature = sign_certificate_bytes(
+        certificate_bytes, key_id=TEST_KEY_ID, keys=trust_store
+    )
     field_packet = {
         "calibration_id": "CAL-UTM-2026-08",
         "case_id": "beam-b1-certificate",
@@ -278,14 +284,18 @@ def build_beam_records() -> dict[str, dict]:
         "format": "gat-field-packet-v1",
         "note": (
             "Fixture packet with a real HMAC over the shipped certificate "
-            "bytes, using the published test key. It proves the bytes were "
-            "not altered between signing and use. It is not issuer "
-            "accreditation and not a field lab."
+            "bytes under this repository's test key, whose secret is "
+            "published in gat/engineering/certificate_signature.py. It proves "
+            "the bytes were not altered between signing and use, and nothing "
+            "more: not issuer accreditation, not a field lab, and not a key "
+            "any real acceptance decision should trust."
         ),
         "quantity": "YieldStrengthMPa",
         "result_world_digest": chain["result_world_digest"],
         "signature": signature.to_dict(),
-        "signature_verified": verify_certificate_bytes(certificate_bytes, signature),
+        "signature_verified": verify_certificate_bytes(
+            certificate_bytes, signature, keys=trust_store
+        ),
         "source_bytes_sha256": hashlib.sha256(certificate_bytes).hexdigest(),
         "source_path": "gat/demo/material_certificate.json",
         "subject_global_id": beam.global_id,

@@ -4,7 +4,7 @@
   "disposition": "VIOLATED",
   "expected_prior_world_digest": "945c6574e32633871696516a864cddc51187b7a6c39d3fb8f35cd19b1f0eee61",
   "format": "gat-field-packet-v1",
-  "note": "Fixture packet with a real HMAC over the shipped certificate bytes, using the published test key. It proves the bytes were not altered between signing and use. It is not issuer accreditation and not a field lab.",
+  "note": "Fixture packet with a real HMAC over the shipped certificate bytes under this repository's test key, whose secret is published in gat/engineering/certificate_signature.py. It proves the bytes were not altered between signing and use, and nothing more: not issuer accreditation, not a field lab, and not a key any real acceptance decision should trust.",
   "quantity": "YieldStrengthMPa",
   "result_world_digest": "b6434955f513c614e413b659c94fec0bc495a23b5c5bee62474761bfea4d7da4",
   "signature": {
