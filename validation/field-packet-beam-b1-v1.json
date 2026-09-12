@@ -2,11 +2,11 @@
   "calibration_id": "CAL-UTM-2026-08",
   "case_id": "beam-b1-certificate",
   "disposition": "VIOLATED",
-  "expected_prior_world_digest": "baaa454a4c58f9279736abf8e8c4582510b1c25d25adeaf07c9b0a901c307b52",
+  "expected_prior_world_digest": "945c6574e32633871696516a864cddc51187b7a6c39d3fb8f35cd19b1f0eee61",
   "format": "gat-field-packet-v1",
   "note": "Fixture packet with a real HMAC over the shipped certificate bytes, using the published test key. It proves the bytes were not altered between signing and use. It is not issuer accreditation and not a field lab.",
   "quantity": "YieldStrengthMPa",
-  "result_world_digest": "a190c0de25022b05256bc285a08960dcc8335b75de89878b8b39fcdadab68cf7",
+  "result_world_digest": "b6434955f513c614e413b659c94fec0bc495a23b5c5bee62474761bfea4d7da4",
   "signature": {
     "algorithm": "hmac-sha256-v1",
     "digest": "410def092b79b76b55f2a2c4b31fbc0207f42056de1eef26e04a89d105604be6",

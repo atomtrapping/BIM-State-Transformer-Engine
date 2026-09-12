@@ -2,9 +2,9 @@
 
 The directory used to hold hand-written claims wearing the costume of test
 fixtures: world digests that no path form reproduced, `source` fields naming
-files that did not exist, a geometry authority of SWEPT_SOLID on a model with
-no body representation at all. Nine of eleven records were referenced by no
-code, so nothing ever noticed.
+files that did not exist, a geometry authority of SWEPT_SOLID on a model that
+had no body representation at all. Nine of eleven records were referenced by
+no code, so nothing ever noticed.
 
 These tests re-run the producers in `validation/records.py` and compare
 byte-for-byte against the shipped files. A record can no longer be edited by
@@ -109,30 +109,56 @@ class RecordHonestyTests(unittest.TestCase):
                         f"{name} admits its own numbers are not real",
                     )
 
-    def test_the_beam_record_does_not_claim_geometry_it_lacks(self) -> None:
-        """The shipped beam model has no body; the record must say so."""
-        record = self.shipped["beam-b1-disposition-v1.json"]
-        support = record["support"]
-        self.assertEqual(support["beam_geometry_status"], "BLOCKED")
-        self.assertEqual(support["geometry_only_authority"], "INSUFFICIENT")
+    def test_the_beam_record_earns_the_support_it_claims(self) -> None:
+        """The section modulus is declared, and the model's solid backs it."""
+        support = self.shipped["beam-b1-disposition-v1.json"]["support"]
+        self.assertEqual(support["beam_geometry_status"], "COMPLETE")
+        self.assertEqual(support["geometry_only_authority"], "SWEPT_SOLID")
         self.assertEqual(
             support["section_modulus_source"], "GAT_Structural declared property set"
         )
         corroboration = support["section_corroboration"]
-        self.assertFalse(corroboration["corroborated"])
-        self.assertEqual(corroboration["authority"], "DECLARED_PROPERTY")
+        self.assertTrue(corroboration["corroborated"])
+        self.assertEqual(corroboration["authority"], "DECLARED_CORROBORATED")
+        # Z and S are different section properties; only their ratio is checked.
+        low, high = corroboration["shape_factor_bounds"]
+        self.assertLess(low, corroboration["shape_factor"])
+        self.assertLess(corroboration["shape_factor"], high)
+        self.assertGreater(
+            corroboration["declared_plastic_modulus_m3"],
+            corroboration["derived_elastic_modulus_m3"],
+            "Z >= S is a geometric floor for any solid section",
+        )
 
-    def test_a_satisfied_beam_on_a_bare_declaration_cannot_authorize(self) -> None:
-        """The point of the whole support block: SATISFIED is not ACCEPT."""
-        record = self.shipped["beam-b1-disposition-v1.json"]
-        prior = record["prior"]
+    def test_as_built_still_wants_evidence_even_with_support(self) -> None:
+        """Corroborated support removes the geometry objection, not the evidence one."""
+        prior = self.shipped["beam-b1-disposition-v1.json"]["prior"]
         self.assertEqual(prior["verdict"], "SATISFIED")
-        self.assertEqual(prior["acceptance"]["disposition"], "REQUEST_EVIDENCE")
-        self.assertFalse(prior["acceptance"]["may_authorize"])
 
-        revised = record["revised_after_certificate"]
+        as_built = prior["acceptance"]["as_built"]
+        self.assertEqual(as_built["disposition"], "REQUEST_EVIDENCE")
+        self.assertFalse(as_built["may_authorize"])
+        self.assertEqual(
+            as_built["insufficient_geometry_check_ids"],
+            [],
+            "the refusal must now be about evidence, not about support",
+        )
+
+        # The design-review policy waives field evidence but not support, so
+        # it can only reach ACCEPT because the declaration is corroborated.
+        design_review = prior["acceptance"]["design_review"]
+        self.assertEqual(design_review["disposition"], "ACCEPT")
+        self.assertTrue(design_review["may_authorize"])
+
+    def test_a_violated_capacity_is_rejected_under_every_policy(self) -> None:
+        revised = self.shipped["beam-b1-disposition-v1.json"][
+            "revised_after_certificate"
+        ]
         self.assertEqual(revised["verdict"], "VIOLATED")
-        self.assertEqual(revised["acceptance"]["disposition"], "REJECT")
+        for policy, outcome in sorted(revised["acceptance"].items()):
+            with self.subTest(policy=policy):
+                self.assertEqual(outcome["disposition"], "REJECT")
+                self.assertFalse(outcome["may_authorize"])
 
     def test_the_field_packet_signature_verifies(self) -> None:
         from gat.engineering.certificate_signature import verify_certificate_bytes

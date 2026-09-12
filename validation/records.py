@@ -145,12 +145,12 @@ def _beam_chain() -> dict[str, object]:
 
 
 def _beam_support(session: GatSession, beam) -> dict[str, object]:
-    """What actually backs the shipped beam's section modulus -- a declaration.
+    """What actually backs the shipped beam's section modulus.
 
-    The demo model carries no body representation, so geometry derivation is
-    BLOCKED and there is no solid to check the declared plastic modulus
-    against. The support block records both halves: what the geometry says,
-    and whether it corroborates the declaration.
+    The model carries a W360X57 swept solid, so the adapter derives the
+    elastic modulus S from the profile independently of the declared plastic
+    modulus Z. The support block records both halves: what the geometry says
+    on its own, and whether it corroborates the declaration.
     """
     digest = hashlib.sha256(BEAM_MODEL.read_bytes()).hexdigest()
     file = parse_ifc_file(str(BEAM_MODEL))
@@ -175,21 +175,40 @@ def _beam_support(session: GatSession, beam) -> dict[str, object]:
 
 
 def _capacity_disposition(result, authority, support) -> dict[str, object]:
-    """What a case policy makes of this capacity verdict."""
+    """What each case policy makes of this capacity verdict.
+
+    Both policies are recorded because the difference between them is the
+    whole point of the support block. The as-built policy still wants field
+    evidence for this exact world. The design-review policy does not -- but
+    it does require sufficient support, so it can only reach ACCEPT once the
+    declared section modulus is corroborated by the model's own solid.
+    """
     case = AcceptanceCase(
         "beam-b1-capacity",
         WorkflowKind.OPENING_VERIFICATION,
         "Beam-B1 factored bending",
         (capacity_check("beam-b1-bending", result, authority, support=support),),
     )
-    outcome = evaluate_acceptance_case(case)
-    return {
-        "disposition": outcome.disposition.value,
-        "insufficient_geometry_check_ids": list(
-            outcome.insufficient_geometry_check_ids
+    policies = {
+        "as_built": evaluate_acceptance_case(case),
+        "design_review": evaluate_acceptance_case(
+            case,
+            policy=AcceptancePolicy(
+                "design-review-v1",
+                require_verified_evidence_for_accept=False,
+            ),
         ),
-        "may_authorize": outcome.may_authorize,
-        "reasons": list(outcome.reasons),
+    }
+    return {
+        name: {
+            "disposition": outcome.disposition.value,
+            "insufficient_geometry_check_ids": list(
+                outcome.insufficient_geometry_check_ids
+            ),
+            "may_authorize": outcome.may_authorize,
+            "reasons": list(outcome.reasons),
+        }
+        for name, outcome in policies.items()
     }
 
 
@@ -219,13 +238,16 @@ def build_beam_records() -> dict[str, dict]:
             "SATISFIED becomes VIOLATED once the measured material "
             "certificate is conditioned in. Digests identify the model's "
             "bytes, not this path. Read the support block before the "
-            "verdicts: this model carries no body representation at all, so "
-            "its plastic section modulus is declared in a property set and "
-            "nothing in the file corroborates it. That is why the prior "
-            "SATISFIED verdict still cannot authorize -- a capacity check "
-            "resting on DECLARED_PROPERTY yields REQUEST_EVIDENCE, not "
-            "ACCEPT. The certificate then makes the verdict VIOLATED, and "
-            "REJECT wins regardless of support."
+            "verdicts: the model carries a W360X57 swept solid, so the "
+            "declared plastic modulus Z is corroborated against an "
+            "independently derived elastic modulus S through the shape "
+            "factor. That earns DECLARED_CORROBORATED, which is why the "
+            "design-review policy can reach ACCEPT on the prior belief. The "
+            "as-built policy still returns REQUEST_EVIDENCE -- not for want "
+            "of geometry now, but because a satisfied check still needs "
+            "field evidence bound to this exact world. The certificate then "
+            "makes the verdict VIOLATED, and REJECT wins regardless of "
+            "support."
         ),
         "support": support,
         "prior": {

@@ -1,10 +1,12 @@
 """A declared section modulus is not a measured one, and must say so.
 
-The shipped beam model carries no body representation at all: its plastic
-section modulus is asserted in a GAT_Structural property set, and nothing in
-the file corroborates it. Before this contract existed the beam record simply
-claimed SWEPT_SOLID, and no capacity verdict passed through the geometry gate
-at all, so the claim cost nothing to make.
+The shipped beam model declares its plastic section modulus in a
+GAT_Structural property set. Before this contract existed the beam record
+simply claimed SWEPT_SOLID for it -- on a file that carried no body
+representation at all -- and no capacity verdict passed through the geometry
+gate, so the claim cost nothing to make. The model now carries a W360X57
+swept solid, so the declaration is checked against geometry the file actually
+contains.
 
 A capacity check now declares its support explicitly. A bare declaration is
 DECLARED_PROPERTY and closes nothing. When the model's own swept solid
@@ -33,6 +35,7 @@ from gat.engineering.section_corroboration import (
 from gat.session import GatSession
 from gat.workflows import (
     AcceptanceCase,
+    AcceptancePolicy,
     AcceptanceCheck,
     AcceptanceCheckKind,
     AcceptanceDisposition,
@@ -217,16 +220,8 @@ class ShippedBeamGateTests(unittest.TestCase):
             source_ifc_sha256=hashlib.sha256(BEAM_MODEL.read_bytes()).hexdigest(),
         )
 
-    def test_the_shipped_beam_declaration_is_uncorroborated(self) -> None:
-        self.assertFalse(self.corroboration.corroborated)
-        self.assertIs(
-            self.corroboration.authority, GeometryAuthority.DECLARED_PROPERTY
-        )
-        self.assertIn("no swept solid", self.corroboration.reason)
-
-    def test_a_satisfied_verdict_on_a_bare_declaration_cannot_authorize(self) -> None:
-        self.assertEqual(self.result.verdict.value, "SATISFIED")
-        case = AcceptanceCase(
+    def _case(self) -> AcceptanceCase:
+        return AcceptanceCase(
             "beam-b1-capacity",
             WorkflowKind.OPENING_VERIFICATION,
             "Beam-B1 factored bending",
@@ -239,9 +234,60 @@ class ShippedBeamGateTests(unittest.TestCase):
                 ),
             ),
         )
-        outcome = evaluate_acceptance_case(case)
+
+    def test_the_shipped_beam_solid_corroborates_its_declaration(self) -> None:
+        self.assertTrue(self.corroboration.corroborated, self.corroboration.reason)
+        self.assertIs(
+            self.corroboration.authority, GeometryAuthority.DECLARED_CORROBORATED
+        )
+        low, high = SHAPE_FACTOR_BOUNDS
+        self.assertLess(low, self.corroboration.shape_factor)
+        self.assertLess(self.corroboration.shape_factor, high)
+
+    def test_the_declared_modulus_exceeds_the_derived_elastic_one(self) -> None:
+        """Z >= S, always. If this inverts, the two were confused somewhere."""
+        self.assertGreater(
+            self.corroboration.declared_plastic_modulus_m3,
+            self.corroboration.derived_elastic_modulus_m3,
+        )
+
+    def test_as_built_still_requests_evidence_but_not_for_want_of_support(self) -> None:
+        self.assertEqual(self.result.verdict.value, "SATISFIED")
+        outcome = evaluate_acceptance_case(self._case())
         self.assertIs(outcome.disposition, AcceptanceDisposition.REQUEST_EVIDENCE)
         self.assertFalse(outcome.may_authorize)
+        self.assertEqual(list(outcome.insufficient_geometry_check_ids), [])
+
+    def test_design_review_can_accept_once_the_declaration_is_corroborated(self) -> None:
+        outcome = evaluate_acceptance_case(
+            self._case(),
+            policy=AcceptancePolicy(
+                "design-review-v1", require_verified_evidence_for_accept=False
+            ),
+        )
+        self.assertIs(outcome.disposition, AcceptanceDisposition.ACCEPT)
+        self.assertTrue(outcome.may_authorize)
+
+    def test_design_review_is_still_refused_on_a_bare_declaration(self) -> None:
+        """Waiving field evidence does not waive support."""
+        bare = capacity_check(
+            "beam-b1-bending",
+            self.result,
+            GeometryAuthority.DECLARED_PROPERTY,
+        )
+        case = AcceptanceCase(
+            "beam-b1-capacity",
+            WorkflowKind.OPENING_VERIFICATION,
+            "Beam-B1 factored bending",
+            (bare,),
+        )
+        outcome = evaluate_acceptance_case(
+            case,
+            policy=AcceptancePolicy(
+                "design-review-v1", require_verified_evidence_for_accept=False
+            ),
+        )
+        self.assertIs(outcome.disposition, AcceptanceDisposition.REQUEST_EVIDENCE)
         self.assertEqual(
             list(outcome.insufficient_geometry_check_ids), ["beam-b1-bending"]
         )
