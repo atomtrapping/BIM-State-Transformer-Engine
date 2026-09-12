@@ -122,6 +122,6 @@ Not Revit, Archicad, CAD, a renderer, an LLM, a generic Gaussian package,
 FEM, IFC, or a twin platform. It is a computational layer that can sit
 between those representations and a decision.
 
-Repository: [giasonpooni/BIM-State-Transformer-Engine-WIP](https://github.com/giasonpooni/BIM-State-Transformer-Engine-WIP).
-Engine name is GAT; package is `gat-bim`. Rename the GitHub repo when you are
-ready — GitHub keeps redirects from the old URL.
+Repository: [giasonpooni/Gaussian-Architectural-Transformer-for-BIM](https://github.com/giasonpooni/Gaussian-Architectural-Transformer-for-BIM).
+Engine name is GAT; package is `gat-bim`. The repository was previously
+`BIM-State-Transformer-Engine-WIP`; GitHub keeps redirects from the old URL.

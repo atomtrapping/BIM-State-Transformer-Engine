@@ -7,7 +7,7 @@ tagline = "Review evidence-bound BIM acceptance decisions"
 maintainer = "Notation Systems"
 type = "add-on"
 
-website = "https://github.com/notationsystems/BIM-State-Transformer-Engine"
+website = "https://github.com/giasonpooni/Gaussian-Architectural-Transformer-for-BIM"
 tags = ["3D View", "Import-Export", "Pipeline"]
 blender_version_min = "4.2.0"
 license = ["SPDX:GPL-3.0-or-later"]

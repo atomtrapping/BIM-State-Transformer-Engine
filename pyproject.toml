@@ -31,7 +31,7 @@ openusd = ["usd-core>=26.8,<27", "cryptography>=40"]
 ifcopenshell = ["ifcopenshell>=0.8"]
 
 [project.urls]
-Repository = "https://github.com/giasonpooni/BIM-State-Transformer-Engine-WIP"
+Repository = "https://github.com/giasonpooni/Gaussian-Architectural-Transformer-for-BIM"
 
 [tool.setuptools.packages.find]
 include = ["gat*"]
