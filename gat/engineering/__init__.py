@@ -21,6 +21,13 @@ from gat.engineering.beam import (
     beam_assessment_record,
     explain_beam_decision_change,
 )
+from gat.engineering.section_corroboration import (
+    CORROBORATION_METHOD,
+    SHAPE_FACTOR_BOUNDS,
+    SectionCorroboration,
+    corroborate_beam_section,
+    corroborate_plastic_modulus,
+)
 from gat.engineering.material_certificate import (
     MATERIAL_CERTIFICATE_FORMAT,
     MATERIAL_CERTIFICATE_SCHEMA_VERSION,
@@ -31,6 +38,11 @@ from gat.engineering.material_certificate import (
 )
 
 __all__ = [
+    "CORROBORATION_METHOD",
+    "SHAPE_FACTOR_BOUNDS",
+    "SectionCorroboration",
+    "corroborate_beam_section",
+    "corroborate_plastic_modulus",
     "AISC360_22_F2_LRFD_METHOD",
     "AISC360_22_F2_LRFD_ORACLE_ID",
     "AISC360_22_F2_LRFD_ORACLE_RECORD_DIGEST",

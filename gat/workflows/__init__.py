@@ -17,6 +17,7 @@ from gat.workflows.acceptance import (
     clearance_check,
     clearance_evidence_request,
     decision_evidence_request,
+    capacity_check,
     difference_check,
     minimum_check,
 )
@@ -50,6 +51,7 @@ __all__ = [
     "clearance_check",
     "clearance_evidence_request",
     "decision_evidence_request",
+    "capacity_check",
     "difference_check",
     "evaluate_acceptance_case",
     "minimum_check",

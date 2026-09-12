@@ -31,6 +31,7 @@ from gat.engineering.certificate_signature import (
     verify_certificate_bytes,
 )
 from gat.engineering.material_certificate import read_material_certificate
+from gat.engineering.section_corroboration import corroborate_beam_section
 from gat.errors import GatError
 from gat.gaussian.sparse_factors import inventory_sparse_factors
 from gat.session import GatSession
@@ -38,6 +39,7 @@ from gat.workflows.geometry_authority import authority_from_beam_status
 from gat.workflows import (
     AcceptanceCase,
     AcceptancePolicy,
+    capacity_check,
     DifferenceDecision,
     WorkflowKind,
     assess_difference,
@@ -138,31 +140,56 @@ def _beam_chain() -> dict[str, object]:
         "revised": revised,
         "prior_world_digest": prior_world_digest,
         "result_world_digest": session.world.digest(),
+        "session": session,
     }
 
 
-def _beam_geometry_support() -> dict[str, object]:
-    """What geometry actually backs the shipped beam -- which is none.
+def _beam_support(session: GatSession, beam) -> dict[str, object]:
+    """What actually backs the shipped beam's section modulus -- a declaration.
 
-    The demo model carries no body representation, so derivation is BLOCKED
-    and the authority code is INSUFFICIENT. Its plastic section modulus comes
-    from the declared GAT_Structural property set instead. That is a real and
-    separate provenance, and the record says so rather than claiming a solid
-    the file does not contain.
+    The demo model carries no body representation, so geometry derivation is
+    BLOCKED and there is no solid to check the declared plastic modulus
+    against. The support block records both halves: what the geometry says,
+    and whether it corroborates the declaration.
     """
-    file = parse_ifc_file(str(BEAM_MODEL))
     digest = hashlib.sha256(BEAM_MODEL.read_bytes()).hexdigest()
-    beam = next(
-        instance
-        for instance in file.by_type("IFCBEAM")
-        if global_id(instance) == "GATBEAMELEMENT00000100"
+    file = parse_ifc_file(str(BEAM_MODEL))
+    instance = next(
+        candidate
+        for candidate in file.by_type("IFCBEAM")
+        if global_id(candidate) == beam.global_id
     )
-    result = derive_beam_geometry(file, beam, source_ifc_sha256=digest)
+    geometry = derive_beam_geometry(file, instance, source_ifc_sha256=digest)
+    corroboration = corroborate_beam_section(
+        session.world, file, beam, source_ifc_sha256=digest
+    )
     return {
-        "beam_geometry_status": str(result.status),
-        "beam_geometry_issues": list(result.issues),
-        "geometry_authority": str(authority_from_beam_status(str(result.status))),
+        "beam_geometry_issues": list(geometry.issues),
+        "beam_geometry_status": str(geometry.status),
+        "geometry_only_authority": str(
+            authority_from_beam_status(str(geometry.status))
+        ),
+        "section_corroboration": corroboration.to_dict(),
         "section_modulus_source": "GAT_Structural declared property set",
+    }
+
+
+def _capacity_disposition(result, authority, support) -> dict[str, object]:
+    """What a case policy makes of this capacity verdict."""
+    case = AcceptanceCase(
+        "beam-b1-capacity",
+        WorkflowKind.OPENING_VERIFICATION,
+        "Beam-B1 factored bending",
+        (capacity_check("beam-b1-bending", result, authority, support=support),),
+    )
+    outcome = evaluate_acceptance_case(case)
+    return {
+        "disposition": outcome.disposition.value,
+        "insufficient_geometry_check_ids": list(
+            outcome.insufficient_geometry_check_ids
+        ),
+        "may_authorize": outcome.may_authorize,
+        "reasons": list(outcome.reasons),
     }
 
 
@@ -172,6 +199,8 @@ def build_beam_records() -> dict[str, dict]:
     prior = chain["prior"]
     revised = chain["revised"]
     beam = chain["beam"]
+    support = _beam_support(chain["session"], beam)
+    authority = support["section_corroboration"]["authority"]
 
     disposition = {
         "beam": {
@@ -189,17 +218,23 @@ def build_beam_records() -> dict[str, dict]:
             "Replayable decision on the shipped beam IFC. A design-belief "
             "SATISFIED becomes VIOLATED once the measured material "
             "certificate is conditioned in. Digests identify the model's "
-            "bytes, not this path. Note the support block: this model has no "
-            "body representation at all, so its section modulus is a declared "
-            "property, not a derived solid."
+            "bytes, not this path. Read the support block before the "
+            "verdicts: this model carries no body representation at all, so "
+            "its plastic section modulus is declared in a property set and "
+            "nothing in the file corroborates it. That is why the prior "
+            "SATISFIED verdict still cannot authorize -- a capacity check "
+            "resting on DECLARED_PROPERTY yields REQUEST_EVIDENCE, not "
+            "ACCEPT. The certificate then makes the verdict VIOLATED, and "
+            "REJECT wins regardless of support."
         ),
-        "support": _beam_geometry_support(),
+        "support": support,
         "prior": {
             "capacity_mean_n_m": prior.assessment.target_mean,
             "capacity_sigma_n_m": prior.assessment.target_sigma,
             "p_satisfies": prior.assessment.p_satisfies,
             "verdict": prior.verdict.value,
             "world_digest": chain["prior_world_digest"],
+            "acceptance": _capacity_disposition(prior, authority, support),
         },
         "revised_after_certificate": {
             "capacity_mean_n_m": revised.assessment.target_mean,
@@ -207,6 +242,7 @@ def build_beam_records() -> dict[str, dict]:
             "p_satisfies": revised.assessment.p_satisfies,
             "verdict": revised.verdict.value,
             "world_digest": chain["result_world_digest"],
+            "acceptance": _capacity_disposition(revised, authority, support),
         },
     }
 

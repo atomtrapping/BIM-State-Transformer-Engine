@@ -10,8 +10,18 @@
   },
   "format": "gat-beam-disposition-v1",
   "model": "gat/demo/beam_model.ifc",
-  "note": "Replayable decision on the shipped beam IFC. A design-belief SATISFIED becomes VIOLATED once the measured material certificate is conditioned in. Digests identify the model's bytes, not this path. Note the support block: this model has no body representation at all, so its section modulus is a declared property, not a derived solid.",
+  "note": "Replayable decision on the shipped beam IFC. A design-belief SATISFIED becomes VIOLATED once the measured material certificate is conditioned in. Digests identify the model's bytes, not this path. Read the support block before the verdicts: this model carries no body representation at all, so its plastic section modulus is declared in a property set and nothing in the file corroborates it. That is why the prior SATISFIED verdict still cannot authorize -- a capacity check resting on DECLARED_PROPERTY yields REQUEST_EVIDENCE, not ACCEPT. The certificate then makes the verdict VIOLATED, and REJECT wins regardless of support.",
   "prior": {
+    "acceptance": {
+      "disposition": "REQUEST_EVIDENCE",
+      "insufficient_geometry_check_ids": [
+        "beam-b1-bending"
+      ],
+      "may_authorize": false,
+      "reasons": [
+        "satisfied checks lack verified evidence for this exact world"
+      ]
+    },
     "capacity_mean_n_m": 315000.00000000006,
     "capacity_sigma_n_m": 7858.912138457841,
     "p_satisfies": 0.9625778267382401,
@@ -19,6 +29,16 @@
     "world_digest": "baaa454a4c58f9279736abf8e8c4582510b1c25d25adeaf07c9b0a901c307b52"
   },
   "revised_after_certificate": {
+    "acceptance": {
+      "disposition": "REJECT",
+      "insufficient_geometry_check_ids": [
+        "beam-b1-bending"
+      ],
+      "may_authorize": false,
+      "reasons": [
+        "one or more checks are violated at the required confidence"
+      ]
+    },
     "capacity_mean_n_m": 293823.5294117647,
     "capacity_sigma_n_m": 3417.9874792492296,
     "p_satisfies": 0.017881196157638835,
@@ -30,7 +50,18 @@
       "beam Representation must be an IFC reference"
     ],
     "beam_geometry_status": "BLOCKED",
-    "geometry_authority": "INSUFFICIENT",
+    "geometry_only_authority": "INSUFFICIENT",
+    "section_corroboration": {
+      "authority": "DECLARED_PROPERTY",
+      "corroborated": false,
+      "declared_plastic_modulus_m3": 0.001,
+      "method": "gat-shape-factor-bracket-v1",
+      "reason": "the model carries no swept solid to check the declaration against (beam geometry is BLOCKED)",
+      "shape_factor_bounds": [
+        1.0,
+        1.3
+      ]
+    },
     "section_modulus_source": "GAT_Structural declared property set"
   }
 }

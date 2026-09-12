@@ -25,7 +25,10 @@ import hashlib
 import json
 import math
 import re
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable
+
+if TYPE_CHECKING:  # avoids a cycle: engineering imports workflows
+    from gat.engineering.beam import BeamCheckResult
 
 from gat.engine.decision import (
     DecisionAssessment,
@@ -60,6 +63,11 @@ class AcceptanceCheckKind(StrEnum):
     CLEARANCE = "CLEARANCE"
     MINIMUM = "MINIMUM"
     DIFFERENCE = "DIFFERENCE"
+    #: A member capacity verdict -- a resistance compared against a factored
+    #: demand. Its support is a section property, which may be derived from a
+    #: solid or merely declared in a property set, so it carries an explicit
+    #: geometry authority rather than inheriting a default.
+    CAPACITY = "CAPACITY"
 
 
 def _nonempty(value: str, label: str) -> str:
@@ -242,6 +250,42 @@ def minimum_check(check_id: str, assessment: DecisionAssessment) -> AcceptanceCh
             "target_sigma": assessment.target_sigma,
             "minimum": assessment.decision.minimum,
         },
+    )
+
+
+def capacity_check(
+    check_id: str,
+    result: "BeamCheckResult",
+    authority: str,
+    *,
+    support: dict[str, object] | None = None,
+) -> AcceptanceCheck:
+    """Bring a member capacity verdict under the case policy.
+
+    ``authority`` is required and not defaulted. A capacity verdict is only
+    as good as the section property behind it, and that provenance -- derived
+    solid, corroborated declaration, or bare declaration -- is exactly what a
+    policy needs in order to refuse to authorize.
+    """
+    assessment = result.assessment
+    details: dict[str, object] = {
+        "target_mean_n_m": assessment.target_mean,
+        "target_sigma_n_m": assessment.target_sigma,
+        "factored_demand_n_m": result.check.factored_demand_n_m,
+        "geometry_authority": str(authority),
+    }
+    if support is not None:
+        details["section_support"] = support
+    return AcceptanceCheck(
+        check_id=check_id,
+        kind=AcceptanceCheckKind.CAPACITY,
+        subject=result.check.label or result.check.beam.global_id,
+        verdict=assessment.verdict,
+        confidence=result.check.confidence,
+        p_satisfies_lower=assessment.p_satisfies,
+        p_satisfies_upper=assessment.p_satisfies,
+        world_digest=assessment.world_digest,
+        details=details,
     )
 
 

@@ -111,12 +111,28 @@ class RecordHonestyTests(unittest.TestCase):
 
     def test_the_beam_record_does_not_claim_geometry_it_lacks(self) -> None:
         """The shipped beam model has no body; the record must say so."""
-        support = self.shipped["beam-b1-disposition-v1.json"]["support"]
+        record = self.shipped["beam-b1-disposition-v1.json"]
+        support = record["support"]
         self.assertEqual(support["beam_geometry_status"], "BLOCKED")
-        self.assertEqual(support["geometry_authority"], "INSUFFICIENT")
+        self.assertEqual(support["geometry_only_authority"], "INSUFFICIENT")
         self.assertEqual(
             support["section_modulus_source"], "GAT_Structural declared property set"
         )
+        corroboration = support["section_corroboration"]
+        self.assertFalse(corroboration["corroborated"])
+        self.assertEqual(corroboration["authority"], "DECLARED_PROPERTY")
+
+    def test_a_satisfied_beam_on_a_bare_declaration_cannot_authorize(self) -> None:
+        """The point of the whole support block: SATISFIED is not ACCEPT."""
+        record = self.shipped["beam-b1-disposition-v1.json"]
+        prior = record["prior"]
+        self.assertEqual(prior["verdict"], "SATISFIED")
+        self.assertEqual(prior["acceptance"]["disposition"], "REQUEST_EVIDENCE")
+        self.assertFalse(prior["acceptance"]["may_authorize"])
+
+        revised = record["revised_after_certificate"]
+        self.assertEqual(revised["verdict"], "VIOLATED")
+        self.assertEqual(revised["acceptance"]["disposition"], "REJECT")
 
     def test_the_field_packet_signature_verifies(self) -> None:
         from gat.engineering.certificate_signature import verify_certificate_bytes

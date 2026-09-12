@@ -34,6 +34,11 @@ def check_geometry_authority(check: AcceptanceCheck) -> GeometryAuthority:
         return GeometryAuthority(str(raw))
     if check.kind is AcceptanceCheckKind.CLEARANCE:
         return GeometryAuthority.GAUSSIAN_PROXY
+    if check.kind is AcceptanceCheckKind.CAPACITY:
+        # A capacity verdict has no safe default support. Dimensional
+        # quantities do not establish a section modulus, so an undeclared
+        # capacity check is insufficient rather than QUANTITY_ONLY.
+        return GeometryAuthority.INSUFFICIENT
     return GeometryAuthority.QUANTITY_ONLY
 
 
