@@ -41,39 +41,154 @@ the check.
 
 ```bash
 pip install numpy
-pip install ".[openusd]"    # optional Pixar OpenUSD carrier + signatures
+pip install -e .
 python -m unittest discover
+```
+
+Python 3.11+. Optional extras: `openusd` (Pixar OpenUSD carrier +
+signatures), `ifcopenshell` (second IFC inventory adapter; not the
+authoritative loader).
+
+## Start here
+
+Every GAT command is read-only. Nothing in this repository mutates a BIM.
+
+```bash
+gat audit gat/demo/beam_model.ifc --text      # what can this file become?
+gat inspect gat/demo/model.ifc --var "Level 1.TotalWallCost"
+```
+
+![gat audit and gat inspect](docs/images/cli-inspect.png)
+
+`audit` answers the only question worth asking first — *can GAT open this
+model at all* — without partially importing it. `inspect` shows the second
+idea: the wall cost is uncertain, and the **variance attribution** says where
+that uncertainty actually comes from. Note that `ClearHeight` contributes to
+five walls at once. That coupling is not bookkeeping; it is the covariance,
+and it is what makes a single design change propagate correctly.
+
+## One decision, three answers
+
+```bash
 python -m gat.demo.workflow
-python -m gat.demo.beam_assurance out/beam
+```
+
+![the acceptance and RFI workflow](docs/images/cli-decision.png)
+
+The same geometric fact — a door 100 mm narrower than its opening — produces
+three different answers depending on who is asking:
+
+- **as-built policy → `REQUEST_EVIDENCE`.** A numerical fit is not field
+  evidence. Nothing was measured, so nothing is accepted.
+- **explicit design-review policy → `ACCEPT`.** A recommendation, not an
+  approval, and it says so.
+- **RFI preview → mutates nothing.** The world digest is unchanged across
+  both previews.
+
+Separating those three is the product.
+
+## The instruments
+
+Four offline, self-contained HTML surfaces. No server, no network, no
+telemetry — each is a single file you can email to an engineer.
+
+### `gat workbench` — one instrument, eight projection modes
+
+```bash
+gat workbench gat/demo/model.ifc -o workbench.html --variations 3 --ledger ledger.json
+```
+
+![the Notation Workbench, STRUCTURE mode](docs/images/workbench-structure.png)
+
+STRUCTURE renders the belief itself: each element is a Gaussian, and the
+sample selector redraws the building under a different realization of the
+same posterior. The uncertainty envelope slider is in sigmas, not pixels.
+
+![the Notation Workbench, GRAPH mode](docs/images/workbench-graph.png)
+
+GRAPH shows the typed IFC relationship graph the belief is coupled through —
+and states plainly that *position and distance on this canvas are not
+evidence*. Every mode carries that discipline.
+
+![the Notation Workbench, STATE mode](docs/images/workbench-state.png)
+
+STATE is the world's identity: entity count, raw versus derived quantities,
+constraints, the adapter and unit context, and `source_sha256` — the digest
+of the model's **bytes**, which is what the world is named after.
+
+### `gat report` — a decision, and why
+
+```bash
 gat-headless request.json -o response.json
+gat report response.json --html -o report.html
 ```
 
-Python 3.11+. Optional extras: `openusd`, `ifcopenshell` (second IFC inventory
-adapter; not the authoritative loader).
+![a beam capacity decision](docs/images/report-verdict.png)
 
-## One decision
+A design belief said the beam was `SATISFIED` at P = 0.963. A measured
+material certificate revised its yield strength from 350 ± 8 to 326.5 ± 1.9
+MPa, and the same AISC 360-22 F2-1 computation moved design capacity from
+315.0 ± 7.9 to 293.8 ± 3.4 kN·m — so the verdict became `VIOLATED` at
+P = 0.018 against a 301 kN·m demand.
 
-`python -m gat.demo.workflow` runs opening fit on the shipped demo IFC and
-prints the operational contract:
+The full report continues into the evidence chain: the certificate's issuer,
+batch, specimen, calibration digest, and a row that reads
+`may_authorize: no`. GAT will tell you the beam fails. It will not tell you
+that it is therefore safe to act.
 
-- as-built policy → `REQUEST_EVIDENCE` (numerical fit is not field evidence)
-- explicit design-review policy → `ACCEPT` as a recommendation, not an approval
-- RFI preview mutates nothing
+### `gat ledger` — what actually happened
 
-Live dispositions from the shipped demo IFC (not an architecture table):
-
-- [`validation/opening-fit-disposition-v1.json`](validation/opening-fit-disposition-v1.json) — `REQUEST_EVIDENCE`
-- [`validation/opening-fit-design-review-disposition-v1.json`](validation/opening-fit-design-review-disposition-v1.json) — design-review `ACCEPT`
-- [`validation/beam-b1-disposition-v1.json`](validation/beam-b1-disposition-v1.json) — Beam-B1 `SATISFIED` → `VIOLATED` after the material certificate
-
-```python
-from gat import GatSession, ObserveQuantity, SetParameter
-
-session = GatSession.load_ifc("gat/demo/model.ifc")
-session.run(ObserveQuantity.single(session.var("Office-A", "Volume"), 59.4, 0.05))
-session.run(SetParameter(session.var("Level 1", "ClearHeight"), 3.4, design_sigma=0.01))
-session.export_ifc("out/model_transformed.ifc")
+```bash
+gat ledger ledger.json --html -o ledger.html
 ```
+
+![the execution ledger](docs/images/ledger.png)
+
+Every transition is hash-chained to the one before it, carries the world
+digest on both sides, and records its own verification result. A replay on a
+compatible runtime reproduces the chain or refuses it.
+
+### `gat view` — the belief and its samples
+
+```bash
+gat view gat/demo/model.ifc -o viewer.html --variations 3
+```
+
+The standalone 3D viewer, with an optional `--decision` overlaid on the
+geometry it was taken about. The scene layer lowers walls, spaces, openings
+and doors; a world without them — a lone beam, say — is refused with a
+message that names what is missing rather than a numerical error.
+
+## Geometry authority
+
+A probabilistic number is not enough to close a case. Every check declares
+what support it used, and the policy refuses to authorize on insufficient
+support. See [`docs/geometry-authority-v1.md`](docs/geometry-authority-v1.md).
+
+| Code | Closes clearance? | Closes capacity? |
+|---|---|---|
+| `SWEPT_SOLID` | yes | yes |
+| `SCAN_GMM` | yes | yes |
+| `QUANTITY_ONLY` | no | yes |
+| `DECLARED_CORROBORATED` | no | yes |
+| `DECLARED_PROPERTY` | no | no |
+| `LENGTH_ONLY` | no | no |
+| `GAUSSIAN_PROXY` | no | no |
+| `INSUFFICIENT` | no | no |
+
+A declared section modulus is checked against the model's own solid through
+the shape factor Z/S before it earns `DECLARED_CORROBORATED` — a bracket, not
+an equality, because the adapter derives the *elastic* modulus and the
+property set declares the *plastic* one.
+
+## Invariant and variant
+
+Verification distinguishes a constraint that holds from one that merely holds
+*at the mean*. `CONS-01` and `CONS-02` report `p_holds`, and the margin's
+variance carries the covariance term, so quantities that move together are
+not treated as independently uncertain. Below the policy's declared
+confidence a constraint is **variant**: it cannot authorize, and it becomes a
+ranked request to measure the variable that would settle it.
 
 ## Honesty (v0)
 
@@ -85,6 +200,11 @@ session.export_ifc("out/model_transformed.ifc")
 - Gaussian clash is a proxy; openings are not subtracted. That support is
   `GAUSSIAN_PROXY` and cannot close an as-built clearance case without scan
   evidence (`SCAN_GMM`) or a later solid adapter.
+- The scan path (`SCAN_GMM`) is a validated mechanism on synthetic,
+  self-consistent data. No real point cloud has been through it end to end,
+  and the registrar measures ~115 points/s, so a real capture must be reduced
+  first — see [`gat/geometry/scan_filter.py`](gat/geometry/scan_filter.py),
+  where that reduction is recorded as evidence rather than performed quietly.
 - A ledger replay proves history on a compatible runtime. An unsigned chain
   does not prove publisher identity.
 - A replayable transition commitment binds one accepted step and, when present,
@@ -94,6 +214,8 @@ session.export_ifc("out/model_transformed.ifc")
 - A world digest identifies the model's bytes, not its path. See
   [`docs/world-identity-v2.md`](docs/world-identity-v2.md); v1 ledgers and
   carriers do not replay on this runtime.
+- Scale is unproven at product size. The shipped inventory covers 24, 4 and 1
+  raw variables.
 
 ## Kernel vs satellites
 
@@ -108,14 +230,25 @@ the acceptance / beam / RFI slice. See [`docs/kernel-v1.md`](docs/kernel-v1.md).
 | IFC audit + beam geometry status | SP1 proving service |
 | Headless JSON boundary | Learned weights |
 
+## Evidence, not assertion
+
+Everything in `validation/` is produced by `validation/records.py` and checked
+by `tests/test_validation_records.py`. Records are not edited by hand:
+
+```bash
+python validation/regenerate.py --check    # what CI runs
+```
+
+A changed digest in that diff means a changed decision.
+
 ## Docs
 
 - [`docs/treatise.md`](docs/treatise.md) — architecture treatise
 - [`docs/geometry-authority-v1.md`](docs/geometry-authority-v1.md)
+- [`docs/world-identity-v2.md`](docs/world-identity-v2.md) — path-independent world digests
 - [`docs/kernel-v1.md`](docs/kernel-v1.md)
 - [`docs/sparse-belief-v1.md`](docs/sparse-belief-v1.md)
 - [`docs/ifcopenshell-adapter-v0.md`](docs/ifcopenshell-adapter-v0.md)
-- [`docs/world-identity-v2.md`](docs/world-identity-v2.md) — path-independent world digests
 - [`docs/proof-carrying-state-v1.md`](docs/proof-carrying-state-v1.md) — replayable transition commitment
 - [`docs/workflow-deployment-v1.md`](docs/workflow-deployment-v1.md)
 - [`docs/real-ifc-validation-v1.md`](docs/real-ifc-validation-v1.md)

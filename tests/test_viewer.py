@@ -371,3 +371,29 @@ class ViewerHtmlTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SceneRefusalTests(unittest.TestCase):
+    """A world with no Gaussianizable geometry must say so."""
+
+    def test_a_beam_only_world_is_refused_with_a_reason(self) -> None:
+        from gat.errors import GatError
+        from gat.geometry import derive_scene
+
+        world = GatSession.load_ifc(
+            os.path.join(os.path.dirname(gat.demo.__file__), "beam_model.ifc")
+        ).world
+        with self.assertRaises(GatError) as caught:
+            derive_scene(world)
+        message = str(caught.exception)
+        # It must name what is missing and what is present, not leak numpy's
+        # "need at least one array to concatenate".
+        self.assertIn("no Gaussianizable geometry", message)
+        self.assertIn("IfcWall", message)
+        self.assertIn("IfcBeam", message)
+
+    def test_a_world_with_walls_still_builds_a_scene(self) -> None:
+        from gat.geometry import derive_scene
+
+        scene = derive_scene(GatSession.load_ifc(MODEL).world)
+        self.assertGreater(len(scene.elements), 0)

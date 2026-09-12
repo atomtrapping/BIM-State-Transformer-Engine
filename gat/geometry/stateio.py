@@ -275,6 +275,20 @@ def derive_scene(
                 for wb in walls[i + 1 :]:
                     _relate(wa, wb, 0.5)
 
+    if not clouds_means:
+        # Nothing in this world Gaussianizes. derive_scene lowers walls,
+        # spaces, doors and openings; a world made only of, say, a storey and
+        # a beam has no geometric primitives, and numpy's "need at least one
+        # array to concatenate" says nothing useful about why.
+        present = sorted({eid.ifc_class for eid in module.entities})
+        raise GatError(
+            "this world has no Gaussianizable geometry: the scene layer "
+            "lowers IfcWall, IfcSpace, IfcOpeningElement and IfcDoor, and "
+            f"this world contains {', '.join(present) or 'nothing'}. "
+            "Surfaces that need a scene (gat view, gat workbench STRUCTURE, "
+            "clash) cannot render it."
+        )
+
     version = world.digest()
     cloud = GaussianCloud(
         np.concatenate(clouds_means),
