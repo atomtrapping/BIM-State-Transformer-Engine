@@ -15,13 +15,14 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
+import math
 from typing import TYPE_CHECKING
 
 import numpy as np
 
 from gat.errors import NumericalError
 from gat.gaussian.linalg import chol_psd, max_asymmetry
-from gat.ids import EntityId
+from gat.ids import EntityId, VarId
 from gat.ir.core import ExprEquals, LessEqual, NonNegative, RelKind, Role
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -34,6 +35,23 @@ class Status(Enum):
     FAIL = "FAIL"
 
 
+#: The confidence a constraint must hold with to count as invariant.
+#: Phi(2) exactly -- this is the two-sigma band the invariant layer used
+#: before it spoke in probabilities, so the default changes no verdict.
+DEFAULT_INVARIANT_CONFIDENCE = 0.9772498680518208
+
+
+def _normal_cdf(x: float) -> float:
+    return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
+
+
+def _p_holds(margin: float, sigma: float) -> float:
+    """P(constraint holds), given the margin's mean and standard deviation."""
+    if sigma <= 1e-15:
+        return 1.0 if margin >= 0.0 else 0.0
+    return _normal_cdf(margin / sigma)
+
+
 @dataclass(frozen=True)
 class InvariantResult:
     invariant_id: str
@@ -41,6 +59,14 @@ class InvariantResult:
     subject: str
     residual: float
     detail: str
+    #: For a probabilistic constraint, P(it holds) under the current belief.
+    #: None for structural invariants, which are true or false outright.
+    p_holds: float | None = None
+    #: The variables the constraint is stated over. Carried in memory so a
+    #: variant result can name a measurement target without re-parsing
+    #: ``subject``; deliberately not serialized into the ledger, because
+    #: planning is a live operation and replay does not need it.
+    variables: tuple[VarId, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -83,23 +109,60 @@ class Invariant(ABC):
     description: str = ""
 
     @abstractmethod
-    def check(self, world: "World") -> list[InvariantResult]: ...
+    def check(
+        self,
+        world: "World",
+        confidence: float = DEFAULT_INVARIANT_CONFIDENCE,
+    ) -> list[InvariantResult]: ...
 
-    def _pass(self, subject: str, detail: str = "") -> InvariantResult:
-        return InvariantResult(self.id, Status.PASS, subject, 0.0, detail)
+    def _pass(
+        self,
+        subject: str,
+        detail: str = "",
+        *,
+        p_holds: float | None = None,
+        variables: tuple[VarId, ...] = (),
+    ) -> InvariantResult:
+        return InvariantResult(
+            self.id, Status.PASS, subject, 0.0, detail, p_holds, variables
+        )
 
-    def _warn(self, subject: str, residual: float, detail: str) -> InvariantResult:
-        return InvariantResult(self.id, Status.WARN, subject, residual, detail)
+    def _warn(
+        self,
+        subject: str,
+        residual: float,
+        detail: str,
+        *,
+        p_holds: float | None = None,
+        variables: tuple[VarId, ...] = (),
+    ) -> InvariantResult:
+        return InvariantResult(
+            self.id, Status.WARN, subject, residual, detail, p_holds, variables
+        )
 
-    def _fail(self, subject: str, residual: float, detail: str) -> InvariantResult:
-        return InvariantResult(self.id, Status.FAIL, subject, residual, detail)
+    def _fail(
+        self,
+        subject: str,
+        residual: float,
+        detail: str,
+        *,
+        p_holds: float | None = None,
+        variables: tuple[VarId, ...] = (),
+    ) -> InvariantResult:
+        return InvariantResult(
+            self.id, Status.FAIL, subject, residual, detail, p_holds, variables
+        )
 
 
 class RelEndpointsExist(Invariant):
     id = "STRUCT-01"
     description = "every relationship endpoint resolves to an entity"
 
-    def check(self, world: "World") -> list[InvariantResult]:
+    def check(
+        self,
+        world: "World",
+        confidence: float = DEFAULT_INVARIANT_CONFIDENCE,
+    ) -> list[InvariantResult]:
         out = []
         for rel in world.module.rels:
             for end in (rel.source, rel.target):
@@ -114,7 +177,11 @@ class SpatialAcyclicity(Invariant):
     id = "STRUCT-02"
     description = "AGGREGATES + CONTAINS edges form a DAG"
 
-    def check(self, world: "World") -> list[InvariantResult]:
+    def check(
+        self,
+        world: "World",
+        confidence: float = DEFAULT_INVARIANT_CONFIDENCE,
+    ) -> list[InvariantResult]:
         edges = world.graph.spatial_edges()
         children: dict[EntityId, list[EntityId]] = {}
         indeg: dict[EntityId, int] = {}
@@ -142,7 +209,11 @@ class OpeningWellFormed(Invariant):
     id = "STRUCT-03"
     description = "openings void exactly one wall; fillers fill exactly one opening"
 
-    def check(self, world: "World") -> list[InvariantResult]:
+    def check(
+        self,
+        world: "World",
+        confidence: float = DEFAULT_INVARIANT_CONFIDENCE,
+    ) -> list[InvariantResult]:
         out = []
         for eid in world.module.entities:
             if eid.ifc_class == "IfcOpeningElement":
@@ -164,7 +235,11 @@ class SigmaSymmetric(Invariant):
 
     TOL = 1e-9
 
-    def check(self, world: "World") -> list[InvariantResult]:
+    def check(
+        self,
+        world: "World",
+        confidence: float = DEFAULT_INVARIANT_CONFIDENCE,
+    ) -> list[InvariantResult]:
         out = []
         for label, state in (("belief", world.belief), ("full", world.full)):
             asym = max_asymmetry(state.sigma)
@@ -181,7 +256,11 @@ class BeliefPSD(Invariant):
 
     DIAG_TOL = -1e-12
 
-    def check(self, world: "World") -> list[InvariantResult]:
+    def check(
+        self,
+        world: "World",
+        confidence: float = DEFAULT_INVARIANT_CONFIDENCE,
+    ) -> list[InvariantResult]:
         out = []
         try:
             _, jitter = chol_psd(world.belief.sigma)
@@ -203,7 +282,11 @@ class DerivedConsistent(Invariant):
     id = "GAUSS-03"
     description = "derived means equal exact re-evaluation of their expressions"
 
-    def check(self, world: "World") -> list[InvariantResult]:
+    def check(
+        self,
+        world: "World",
+        confidence: float = DEFAULT_INVARIANT_CONFIDENCE,
+    ) -> list[InvariantResult]:
         env = world.full.env()
         worst = 0.0
         worst_var = None
@@ -224,40 +307,89 @@ class DerivedConsistent(Invariant):
 
 class NonNegativeQuantities(Invariant):
     id = "CONS-01"
-    description = "NonNegative constraints: mean >= 0; warn when 2-sigma straddles zero"
+    description = (
+        "NonNegative constraints: mean >= 0, and P(quantity >= 0) at or above "
+        "the declared confidence"
+    )
 
-    def check(self, world: "World") -> list[InvariantResult]:
+    def check(
+        self,
+        world: "World",
+        confidence: float = DEFAULT_INVARIANT_CONFIDENCE,
+    ) -> list[InvariantResult]:
         out = []
         any_bad = False
+        tightest: tuple[float, VarId] | None = None
         for c in world.module.constraints:
             if not isinstance(c, NonNegative):
                 continue
             mean = world.full.mean(c.var)
             std = world.full.std(c.var)
+            p_holds = _p_holds(mean, std)
+            if tightest is None or p_holds < tightest[0]:
+                tightest = (p_holds, c.var)
             if mean < -c.tol:
-                out.append(self._fail(str(c.var), mean, f"mean {mean:.6f} < 0"))
-                any_bad = True
-            elif mean - 2.0 * std < 0.0:
                 out.append(
-                    self._warn(str(c.var), mean - 2.0 * std, f"2-sigma interval straddles zero (mu={mean:.6f}, sigma={std:.6f})")
+                    self._fail(
+                        str(c.var),
+                        mean,
+                        f"mean {mean:.6f} < 0",
+                        p_holds=p_holds,
+                        variables=(c.var,),
+                    )
+                )
+                any_bad = True
+            elif p_holds < confidence:
+                out.append(
+                    self._warn(
+                        str(c.var),
+                        mean - 2.0 * std,
+                        f"variant: P(>= 0) = {p_holds:.6f} below the required "
+                        f"{confidence:.6f} (mu={mean:.6f}, sigma={std:.6f})",
+                        p_holds=p_holds,
+                        variables=(c.var,),
+                    )
                 )
                 any_bad = True
         if not any_bad:
-            out.append(self._pass("nonneg"))
+            # Record the tightest constraint, so the ledger says how much room
+            # there was rather than only that there was enough.
+            out.append(
+                self._pass("nonneg")
+                if tightest is None
+                else self._pass(
+                    "nonneg",
+                    f"tightest: {tightest[1]} holds with P = {tightest[0]:.6f}",
+                    p_holds=tightest[0],
+                    variables=(tightest[1],),
+                )
+            )
         return out
 
 
 class BoundsRespected(Invariant):
     id = "CONS-02"
-    description = "LessEqual constraints hold at the mean; warn on 2-sigma risk"
+    description = (
+        "LessEqual constraints hold at the mean, and P(lhs <= rhs) at or above "
+        "the declared confidence"
+    )
 
-    def check(self, world: "World") -> list[InvariantResult]:
+    def check(
+        self,
+        world: "World",
+        confidence: float = DEFAULT_INVARIANT_CONFIDENCE,
+    ) -> list[InvariantResult]:
         out = []
         any_bad = False
+        tightest: tuple[float, str, tuple[VarId, ...]] | None = None
         for c in world.module.constraints:
             if not isinstance(c, LessEqual):
                 continue
             diff = world.full.mean(c.lhs) - world.full.mean(c.rhs)
+            # The margin's variance carries the covariance term, so two
+            # quantities that move together -- a wall and the opening it
+            # holds, through their shared storey height -- are not treated
+            # as independently uncertain.
             var_diff = (
                 world.full.var_of(c.lhs)
                 + world.full.var_of(c.rhs)
@@ -265,16 +397,43 @@ class BoundsRespected(Invariant):
             )
             std_diff = float(np.sqrt(max(var_diff, 0.0)))
             subject = f"{c.lhs} <= {c.rhs}"
+            p_holds = _p_holds(-diff, std_diff)
+            if tightest is None or p_holds < tightest[0]:
+                tightest = (p_holds, subject, (c.lhs, c.rhs))
             if diff > c.tol:
-                out.append(self._fail(subject, diff, f"violated by {diff:.6f} at the mean"))
-                any_bad = True
-            elif diff + 2.0 * std_diff > 0.0:
                 out.append(
-                    self._warn(subject, diff + 2.0 * std_diff, f"violation within 2 sigma (margin {-diff:.6f}, sigma {std_diff:.6f})")
+                    self._fail(
+                        subject,
+                        diff,
+                        f"violated by {diff:.6f} at the mean",
+                        p_holds=p_holds,
+                        variables=(c.lhs, c.rhs),
+                    )
+                )
+                any_bad = True
+            elif p_holds < confidence:
+                out.append(
+                    self._warn(
+                        subject,
+                        diff + 2.0 * std_diff,
+                        f"variant: P(holds) = {p_holds:.6f} below the required "
+                        f"{confidence:.6f} (margin {-diff:.6f}, sigma {std_diff:.6f})",
+                        p_holds=p_holds,
+                        variables=(c.lhs, c.rhs),
+                    )
                 )
                 any_bad = True
         if not any_bad:
-            out.append(self._pass("bounds"))
+            out.append(
+                self._pass("bounds")
+                if tightest is None
+                else self._pass(
+                    "bounds",
+                    f"tightest: {tightest[1]} holds with P = {tightest[0]:.6f}",
+                    p_holds=tightest[0],
+                    variables=tightest[2],
+                )
+            )
         return out
 
 
@@ -282,7 +441,11 @@ class DefinitionsRestated(Invariant):
     id = "CONS-03"
     description = "ExprEquals constraints: independent restatements hold at the mean"
 
-    def check(self, world: "World") -> list[InvariantResult]:
+    def check(
+        self,
+        world: "World",
+        confidence: float = DEFAULT_INVARIANT_CONFIDENCE,
+    ) -> list[InvariantResult]:
         out = []
         env = world.full.env()
         any_bad = False
@@ -316,7 +479,11 @@ class AggregationConsistent(Invariant):
 
     TOL = 1e-9
 
-    def check(self, world: "World") -> list[InvariantResult]:
+    def check(
+        self,
+        world: "World",
+        confidence: float = DEFAULT_INVARIANT_CONFIDENCE,
+    ) -> list[InvariantResult]:
         out = []
         any_bad = False
         for eid in world.module.entities:
@@ -362,8 +529,21 @@ ALL_INVARIANTS: tuple[Invariant, ...] = (
 )
 
 
-def run_invariants(world: "World") -> VerificationReport:
+def run_invariants(
+    world: "World",
+    confidence: float = DEFAULT_INVARIANT_CONFIDENCE,
+) -> VerificationReport:
+    """Check every invariant.
+
+    ``confidence`` is the probability a probabilistic constraint must hold
+    with to count as invariant. Below it the constraint is *variant*: true of
+    the mean, but not of enough of the posterior to rely on. The default is
+    Phi(2), the two-sigma band this layer used before it reported
+    probabilities, so it changes no existing verdict.
+    """
+    if not math.isfinite(confidence) or not 0.0 < confidence < 1.0:
+        raise ValueError("invariant confidence must be finite and in (0, 1)")
     results: list[InvariantResult] = []
     for inv in ALL_INVARIANTS:
-        results.extend(inv.check(world))
+        results.extend(inv.check(world, confidence))
     return VerificationReport(tuple(results))

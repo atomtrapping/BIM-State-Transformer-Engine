@@ -55,7 +55,10 @@ from gat.ids import EntityId, VarId
 
 
 LEDGER_FORMAT = "gat-execution-ledger"
-LEDGER_SCHEMA_VERSION = 1
+# v2: verification results carry p_holds, the probability a probabilistic
+# constraint holds under the belief. A v1 chain records only the two-sigma
+# verdict and cannot be re-validated against this schema.
+LEDGER_SCHEMA_VERSION = 2
 # v2: world identity is path-independent. The module digest covers the
 # source content hash instead of the caller's path string, so a ledger
 # written by a v1 runtime carries digests this runtime cannot reproduce
@@ -436,6 +439,13 @@ def verification_payload(report: VerificationReport) -> dict[str, object]:
                 "subject": result.subject,
                 "residual": _require_number(result.residual, "verification.residual"),
                 "detail": result.detail,
+                # None for a structural invariant, which is true or false
+                # outright rather than with a probability.
+                "p_holds": (
+                    None
+                    if result.p_holds is None
+                    else _require_number(result.p_holds, "verification.p_holds")
+                ),
             }
             for result in report.results
         ],
@@ -459,7 +469,7 @@ def _validate_verification_record(value: object) -> dict[str, object]:
         result = _json_object(value, f"verification.results[{index}]")
         _expect_fields(
             result,
-            {"invariant_id", "status", "subject", "residual", "detail"},
+            {"invariant_id", "status", "subject", "residual", "detail", "p_holds"},
             f"verification.results[{index}]",
         )
         _require_string(result["invariant_id"], f"verification.results[{index}].invariant_id")
@@ -470,6 +480,13 @@ def _validate_verification_record(value: object) -> dict[str, object]:
         if not isinstance(result["subject"], str) or not isinstance(result["detail"], str):
             raise LedgerError(f"verification.results[{index}] text fields must be strings")
         _require_number(result["residual"], f"verification.results[{index}].residual")
+        p_holds = result["p_holds"]
+        if p_holds is not None:
+            value = _require_number(p_holds, f"verification.results[{index}].p_holds")
+            if not 0.0 <= value <= 1.0:
+                raise LedgerError(
+                    f"verification.results[{index}].p_holds must be a probability"
+                )
     if record["passed"] == saw_failure:
         raise LedgerError("verification.passed disagrees with invariant results")
     return record

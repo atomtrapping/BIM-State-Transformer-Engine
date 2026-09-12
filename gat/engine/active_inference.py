@@ -43,6 +43,7 @@ import numpy as np
 from gat.engine.executor import World
 from gat.engine.propagate import jacobian_rows
 from gat.engine.transform import ObserveQuantity
+from gat.engine.verify import InvariantResult, VerificationReport
 from gat.ids import VarId
 
 
@@ -99,6 +100,44 @@ class MinimumPreference:
 
 
 @dataclass(frozen=True)
+class MarginPreference:
+    """A preference expressed as ``sum(coefficient * variable) >= minimum``.
+
+    :class:`MinimumPreference` covers a single target. A constraint like
+    ``lhs <= rhs`` is a preference over the *margin* ``rhs - lhs``, which
+    spans two variables and whose variance carries their covariance. That is
+    what makes it the right target for planning: measuring either variable
+    informs the margin, and how much it informs depends on how the two move
+    together.
+    """
+
+    terms: tuple[tuple[float, VarId], ...]
+    minimum: float = 0.0
+    label: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.terms:
+            raise ValueError("margin preference needs at least one term")
+        for coefficient, _ in self.terms:
+            if not math.isfinite(coefficient):
+                raise ValueError("margin preference coefficients must be finite")
+        if not math.isfinite(self.minimum):
+            raise ValueError("preference minimum must be finite")
+
+    @property
+    def name(self) -> str:
+        return self.label or " + ".join(f"{c:g}*{v}" for c, v in self.terms)
+
+
+def _preference_terms(
+    preference: "MinimumPreference | MarginPreference",
+) -> tuple[tuple[tuple[float, VarId], ...], float]:
+    if isinstance(preference, MarginPreference):
+        return preference.terms, preference.minimum
+    return ((1.0, preference.target),), preference.minimum
+
+
+@dataclass(frozen=True)
 class ObservationPlan:
     """Auditable score for one candidate observation.
 
@@ -139,7 +178,7 @@ class ObservationPlan:
 def plan_observations(
     world: World,
     candidates: Iterable[ObservationCandidate],
-    preference: MinimumPreference | None = None,
+    preference: "MinimumPreference | MarginPreference | None" = None,
 ) -> tuple[ObservationPlan, ...]:
     """Score candidate observations from lowest expected-free-energy first.
 
@@ -158,19 +197,32 @@ def plan_observations(
     p_satisfies: float | None = None
     risk: float | None = None
 
+    preference_target: VarId | None = None
     if preference is not None:
+        terms, minimum = _preference_terms(preference)
         target_h, target_predicted = jacobian_rows(
-            world.binding, world.belief, (preference.target,)
+            world.binding, world.belief, tuple(var for _, var in terms)
         )
-        target_row = target_h[0]
-        target_mean = float(target_predicted[0])
+        # One linear functional over the belief, so a multi-variable margin
+        # is scored exactly like a single target -- covariance included.
+        target_row = sum(
+            coefficient * target_h[index]
+            for index, (coefficient, _) in enumerate(terms)
+        )
+        target_mean = float(
+            sum(
+                coefficient * float(target_predicted[index])
+                for index, (coefficient, _) in enumerate(terms)
+            )
+        )
+        preference_target = terms[0][1] if len(terms) == 1 else None
         target_var = float(target_row @ world.belief.sigma @ target_row)
         target_var = max(target_var, 0.0)
         target_sigma = math.sqrt(target_var)
         if target_sigma <= 1e-15:
-            p_satisfies = 1.0 if target_mean >= preference.minimum else 0.0
+            p_satisfies = 1.0 if target_mean >= minimum else 0.0
         else:
-            p_satisfies = _normal_cdf((target_mean - preference.minimum) / target_sigma)
+            p_satisfies = _normal_cdf((target_mean - minimum) / target_sigma)
         risk = -math.log(max(p_satisfies, _MIN_VARIANCE))
 
     plans: list[ObservationPlan] = []
@@ -224,7 +276,7 @@ def plan_observations(
                 epistemic_value=epistemic,
                 action_cost=candidate.cost_nats,
                 expected_free_energy=risk + candidate.cost_nats - epistemic,
-                target=preference.target,
+                target=preference_target,
                 target_mean=target_mean,
                 target_sigma=math.sqrt(target_var),
                 posterior_target_sigma=math.sqrt(posterior_target_var),
@@ -249,10 +301,83 @@ def plan_observations(
 def select_observation(
     world: World,
     candidates: Iterable[ObservationCandidate],
-    preference: MinimumPreference | None = None,
+    preference: "MinimumPreference | MarginPreference | None" = None,
 ) -> ObservationPlan:
     """Return the deterministic minimum-EFE observation plan."""
     return plan_observations(world, candidates, preference)[0]
+
+
+def preference_for_variant(result: "InvariantResult") -> MarginPreference | None:
+    """Turn a variant constraint into the margin a measurement should settle.
+
+    ``CONS-02`` (``lhs <= rhs``) becomes the margin ``rhs - lhs >= 0``;
+    ``CONS-01`` (``var >= 0``) becomes ``var >= 0``. Anything else -- a
+    structural invariant, or a result carrying no variables -- has no margin
+    to measure and returns ``None`` rather than a guess.
+    """
+    variables = tuple(result.variables)
+    if result.invariant_id == "CONS-02" and len(variables) == 2:
+        lhs, rhs = variables
+        return MarginPreference(((1.0, rhs), (-1.0, lhs)), 0.0, result.subject)
+    if result.invariant_id == "CONS-01" and len(variables) == 1:
+        return MarginPreference(((1.0, variables[0]),), 0.0, result.subject)
+    return None
+
+
+@dataclass(frozen=True)
+class VariantEvidencePlan:
+    """The measurement that would best settle one variant constraint."""
+
+    subject: str
+    p_holds: float
+    preference: MarginPreference
+    plans: tuple[ObservationPlan, ...]
+
+    @property
+    def best(self) -> ObservationPlan:
+        return self.plans[0]
+
+    def describe(self) -> str:
+        return (
+            f"{self.subject} holds with P = {self.p_holds:.6f}; "
+            f"best next measurement: {self.best.describe()}"
+        )
+
+
+def plan_variant_evidence(
+    world: World,
+    report: "VerificationReport",
+    candidates: Iterable[ObservationCandidate],
+) -> tuple[VariantEvidencePlan, ...]:
+    """Rank measurements that would make variant constraints invariant.
+
+    This closes the loop the engine advertises: verification finds what is
+    variant, and planning names what to measure about it. Constraints are
+    returned weakest-first, so the least reliable one is answered first.
+
+    ``candidates`` must be supplied by the caller: a measurement's noise is a
+    property of a calibrated instrument, and the engine will not invent one.
+    """
+    candidates = tuple(candidates)
+    if not candidates:
+        raise ValueError("at least one observation candidate is required")
+
+    out: list[VariantEvidencePlan] = []
+    for result in report.warnings:
+        if result.p_holds is None:
+            continue
+        preference = preference_for_variant(result)
+        if preference is None:
+            continue
+        out.append(
+            VariantEvidencePlan(
+                subject=result.subject,
+                p_holds=result.p_holds,
+                preference=preference,
+                plans=plan_observations(world, candidates, preference),
+            )
+        )
+    return tuple(sorted(out, key=lambda item: (item.p_holds, item.subject)))
 
 
 def _normal_cdf(x: float) -> float:

@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Iterable
 if TYPE_CHECKING:  # avoids a cycle: engineering imports workflows
     from gat.engineering.beam import BeamCheckResult
 
+from gat.engine.verify import DEFAULT_INVARIANT_CONFIDENCE
 from gat.engine.decision import (
     DecisionAssessment,
     DecisionEvidencePlan,
@@ -481,11 +482,30 @@ class AcceptancePolicy:
     accepted_evidence_kinds: frozenset[str] = frozenset(
         {"calibrated-scan-clearance-likelihood"}
     )
+    #: The confidence a constraint must hold with before this policy will
+    #: treat it as invariant. It is a declared threshold, not a hidden
+    #: sigma count, and it is the same kind of number as a check's own
+    #: ``confidence``.
+    invariant_confidence: float = DEFAULT_INVARIANT_CONFIDENCE
+    #: Whether a variant constraint blocks authorization. A world whose
+    #: bounds hold at the mean but not across the posterior has not been
+    #: shown safe, so by default it cannot ACCEPT -- the same posture
+    #: insufficient geometry gets.
+    require_invariant_constraints_for_accept: bool = True
 
     def __post_init__(self) -> None:
         _nonempty(self.policy_id, "policy_id")
         if not isinstance(self.require_verified_evidence_for_accept, bool):
             raise ValueError("require_verified_evidence_for_accept must be boolean")
+        if not isinstance(self.require_invariant_constraints_for_accept, bool):
+            raise ValueError(
+                "require_invariant_constraints_for_accept must be boolean"
+            )
+        if (
+            not math.isfinite(self.invariant_confidence)
+            or not 0.0 < self.invariant_confidence < 1.0
+        ):
+            raise ValueError("invariant_confidence must be finite and in (0, 1)")
         if not self.accepted_evidence_kinds:
             raise ValueError("accepted_evidence_kinds must be non-empty")
         for kind in self.accepted_evidence_kinds:

@@ -52,6 +52,7 @@
   "subject": "Door-1 into Opening-1",
   "uncovered_check_ids": [],
   "unresolved_check_ids": [],
+  "variant_constraints": [],
   "workflow": "OPENING_VERIFICATION",
   "world_digest": "793474abd27d323b8ef69944ef62fa09a83d192c691a9c21d8a5b74e145d39d5"
 }
