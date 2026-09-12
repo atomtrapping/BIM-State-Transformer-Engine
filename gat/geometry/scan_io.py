@@ -58,8 +58,10 @@ def load_ply_points(path: str | Path) -> np.ndarray:
     """
     path = Path(path)
     try:
+        file_bytes = path.stat().st_size
         with path.open("rb") as fh:
             fmt, count, props = _read_header(fh, path)
+            _check_declared_count(fh, fmt, count, props, file_bytes, path)
             if fmt == "ascii":
                 points = _read_ascii_vertices(fh, count, props, path)
             else:
@@ -72,6 +74,42 @@ def load_ply_points(path: str | Path) -> np.ndarray:
     points = np.ascontiguousarray(points, dtype=np.float64)
     points.setflags(write=False)
     return points
+
+
+def _check_declared_count(
+    fh: BinaryIO,
+    fmt: str,
+    count: int,
+    props: tuple[tuple[str, str], ...],
+    file_bytes: int,
+    path: Path,
+) -> None:
+    """Refuse a vertex count the file cannot possibly contain.
+
+    The count comes from the header, which is third-party input. Allocating
+    on it directly turns a corrupt or hostile artifact into a MemoryError --
+    an error this module's contract says it does not raise. A vertex needs at
+    least one byte per property even in the densest encoding, so the
+    remaining byte count is a hard ceiling.
+    """
+    remaining = file_bytes - fh.tell()
+    if remaining < 0:
+        raise ScanArtifactError(f"{path}: header extends past end of file")
+    if fmt == "ascii":
+        # At minimum "0 0 0\n": one character and one separator per property.
+        min_bytes_per_vertex = 2 * len(props)
+    else:
+        min_bytes_per_vertex = sum(
+            np.dtype(_SCALAR_DTYPES[ptype]).itemsize for _, ptype in props
+        )
+    if min_bytes_per_vertex <= 0:
+        raise ScanArtifactError(f"{path}: vertex element declares no properties")
+    capacity = remaining // min_bytes_per_vertex
+    if count > capacity:
+        raise ScanArtifactError(
+            f"{path}: header declares {count} vertices but only {remaining} "
+            f"bytes remain, which can hold at most {capacity}"
+        )
 
 
 def _read_header(

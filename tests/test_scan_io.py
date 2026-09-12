@@ -102,3 +102,48 @@ class PlyScanIoTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HostileArtifactTests(unittest.TestCase):
+    """The declared vertex count is third-party input, not a promise.
+
+    scan_io's contract is to fail loudly rather than partially misread. It
+    allocated on the header count directly, so a corrupt or hostile artifact
+    raised MemoryError -- an error this module says it does not raise.
+    """
+
+    def _write(self, blob: bytes) -> str:
+        handle = tempfile.NamedTemporaryFile(suffix=".ply", delete=False)
+        handle.write(blob)
+        handle.close()
+        self.addCleanup(os.unlink, handle.name)
+        return handle.name
+
+    HEADER = (
+        b"ply\nformat %s 1.0\nelement vertex %d\n"
+        b"property float x\nproperty float y\nproperty float z\nend_header\n"
+    )
+
+    def test_an_impossible_binary_count_is_refused_not_allocated(self) -> None:
+        path = self._write(self.HEADER % (b"binary_little_endian", 999999999999))
+        with self.assertRaises(ScanArtifactError) as caught:
+            load_ply_points(path)
+        self.assertIn("bytes remain", str(caught.exception))
+
+    def test_an_impossible_ascii_count_is_refused(self) -> None:
+        path = self._write(self.HEADER % (b"ascii", 999999999999) + b"0 0 0\n")
+        with self.assertRaises(ScanArtifactError):
+            load_ply_points(path)
+
+    def test_a_truncated_artifact_is_refused(self) -> None:
+        body = np.array([[0, 0, 0], [1, 1, 1]], dtype="<f4").tobytes()
+        path = self._write((self.HEADER % (b"binary_little_endian", 100)) + body)
+        with self.assertRaises(ScanArtifactError):
+            load_ply_points(path)
+
+    def test_a_valid_artifact_still_loads(self) -> None:
+        points = np.array([[0, 0, 0], [1, 2, 3], [4, 5, 6]], dtype="<f4")
+        path = self._write(
+            (self.HEADER % (b"binary_little_endian", 3)) + points.tobytes()
+        )
+        np.testing.assert_allclose(load_ply_points(path), points.astype(np.float64))

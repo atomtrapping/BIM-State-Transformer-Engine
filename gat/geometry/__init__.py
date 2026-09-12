@@ -34,6 +34,13 @@ from gat.geometry.registration import (
     ScanRegistrar,
     synthesize_scan,
 )
+from gat.geometry.scan_filter import (
+    FILTER_FORMAT,
+    FilteredScan,
+    FilterStep,
+    prepare_for_measurement,
+    prepare_for_pose,
+)
 from gat.geometry.scan_io import load_ply_points
 from gat.geometry.scan_likelihood import (
     ClearanceLikelihoodCalibration,
@@ -75,7 +82,12 @@ __all__ = [
     "element_level",
     "export_splat_ply",
     "laplacian_baseline",
+    "FILTER_FORMAT",
+    "FilterStep",
+    "FilteredScan",
     "load_ply_points",
+    "prepare_for_measurement",
+    "prepare_for_pose",
     "moment_match",
     "plan_clearance_evidence",
     "propagate",
