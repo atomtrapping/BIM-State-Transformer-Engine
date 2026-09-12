@@ -26,6 +26,9 @@ jobs:
       - name: Run test suite
         run: python -m unittest discover -v
 
+      - name: Verify no validation record has drifted from the engine
+        run: python validation/regenerate.py --check
+
       - name: Run the milestone demo (self-asserting)
         run: python -m gat.demo ci-out
 
@@ -93,6 +96,13 @@ jobs:
         env:
           GAT_IFC_VALIDATION_ROOT: ci-ifc-corpus
         run: python -m unittest tests.test_public_ifc_corpus -v
+
+      - name: Verify the corpus-dependent validation records
+        env:
+          GAT_IFC_VALIDATION_ROOT: ci-ifc-corpus
+        run: |
+          python -m unittest tests.test_scoped_worlds tests.test_validation_records -v
+          python validation/regenerate.py --check
 
   test-extras:
     # Everything the other jobs do not cover: the FULL suite with the

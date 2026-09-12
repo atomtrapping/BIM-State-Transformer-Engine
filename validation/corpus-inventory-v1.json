@@ -1,0 +1,28 @@
+{
+  "cases": [
+    {
+      "dense_covariance_entries": 1,
+      "derived_variables": 0,
+      "entities": 1,
+      "id": "clinic-w460x60-scoped",
+      "ifc_factor_cliques": {
+        "contains": 0,
+        "fills": 0,
+        "isolated_entities": 1,
+        "voids": 0
+      },
+      "lowers": true,
+      "raw_variables": 1,
+      "world_digest": "6dc9538ffad9334085c8649062d2aa4ac747df0d91148e39cdb0cecc2ee5b104"
+    },
+    {
+      "id": "buildingsmart-wall-opening-window",
+      "lowers": false,
+      "refusal": "LoweringError",
+      "refusal_reason": "IfcBuildingStorey 2GNgSHJ5j9BRUjqT$7tE8w ('Default Building Storey') lacks required quantity 'ClearHeight'"
+    }
+  ],
+  "format": "gat-corpus-inventory-v1",
+  "note": "Public models from validation/ifc-corpus-v1.json. A refusal here is a result, not a failure: it records exactly why a real file cannot become state. Reproducible state inventory: does a model lower, and how much belief does it become. No timings -- those are host-specific and live in incremental-scale-reference-v1.json, which names the machine it was measured on. This replaces benchmark-v1.json, which pinned wall-clock seconds next to world digests that were never measured.",
+  "oracle": "dense-float64"
+}

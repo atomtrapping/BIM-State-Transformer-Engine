@@ -9,7 +9,7 @@
   "invariants_passed": true,
   "may_authorize_capacity": false,
   "module_digest": "bded53e529938484ddddf305432cb1756e2860c95b9bf8862cff2d6af95d6031",
-  "note": "Measured, not asserted. Scoped lowering of one W460X60 out of a real multi-storey IFC2X3 model. The body IS a complete swept solid, so the adapter can derive Zx from geometry -- but the beam carries no GAT_Structural property set, so no yield strength enters the world and no AISC capacity slot is synthesized. Capacity therefore cannot be checked from the model alone; it needs a material certificate. Digests are path-independent: they identify the model's bytes, so this record reproduces wherever the corpus is fetched to.",
+  "note": "Measured, not asserted. Scoped lowering of one W460X60 out of a real multi-storey IFC2X3 model. The body IS a complete swept solid, so the adapter can derive Zx from geometry -- but the beam carries no GAT_Structural property set, so no yield strength enters the world and no AISC capacity slot is synthesized. Capacity therefore cannot be checked from the model alone; it needs a material certificate. Digests identify the model's bytes, so this record reproduces wherever the corpus is fetched to.",
   "raw_variables": 1,
   "slots": [
     "Length"

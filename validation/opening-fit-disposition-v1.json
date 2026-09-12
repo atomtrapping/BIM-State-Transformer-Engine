@@ -1,12 +1,11 @@
 {
-  "case_digest": "548200b5513311b34410eb14690273d117e1d1205bb24b776e03d3e8129b2f5a",
+  "case_digest": "eab46ab1cb30a5b74c4b1994485b2fc81b569fae94ac0512821c9f71ee401e84",
   "case_id": "opening-fit-demo",
   "checks": [
     {
       "check_id": "width",
       "confidence": 0.95,
       "details": {
-        "geometry_authority": "QUANTITY_ONLY",
         "lhs": "GATOPN0000000000000200.Width",
         "margin_mean": 0.09999999999999998,
         "margin_sigma": 0.0058309518948453,
@@ -19,13 +18,12 @@
       "p_satisfies_upper": 1.0,
       "subject": "Door-1 width fit",
       "verdict": "SATISFIED",
-      "world_digest": "be62ab70f0a6ca6860ccd125504e32d89b58eeaff85bcb96c7aa5aa72efce5e3"
+      "world_digest": "793474abd27d323b8ef69944ef62fa09a83d192c691a9c21d8a5b74e145d39d5"
     },
     {
       "check_id": "height",
       "confidence": 0.95,
       "details": {
-        "geometry_authority": "QUANTITY_ONLY",
         "lhs": "GATOPN0000000000000200.Height",
         "margin_mean": 0.10000000000000009,
         "margin_sigma": 0.0058309518948453,
@@ -38,7 +36,7 @@
       "p_satisfies_upper": 1.0,
       "subject": "Door-1 height fit",
       "verdict": "SATISFIED",
-      "world_digest": "be62ab70f0a6ca6860ccd125504e32d89b58eeaff85bcb96c7aa5aa72efce5e3"
+      "world_digest": "793474abd27d323b8ef69944ef62fa09a83d192c691a9c21d8a5b74e145d39d5"
     }
   ],
   "disposition": "REQUEST_EVIDENCE",
@@ -67,8 +65,11 @@
   ],
   "rejected_check_ids": [],
   "subject": "Door-1 into Opening-1",
-  "uncovered_check_ids": ["width", "height"],
+  "uncovered_check_ids": [
+    "width",
+    "height"
+  ],
   "unresolved_check_ids": [],
   "workflow": "OPENING_VERIFICATION",
-  "world_digest": "be62ab70f0a6ca6860ccd125504e32d89b58eeaff85bcb96c7aa5aa72efce5e3"
+  "world_digest": "793474abd27d323b8ef69944ef62fa09a83d192c691a9c21d8a5b74e145d39d5"
 }

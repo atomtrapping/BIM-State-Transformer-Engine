@@ -1,0 +1,37 @@
+{
+  "cases": [
+    {
+      "dense_covariance_entries": 576,
+      "derived_variables": 39,
+      "entities": 10,
+      "id": "office-demo",
+      "ifc_factor_cliques": {
+        "contains": 1,
+        "fills": 1,
+        "isolated_entities": 2,
+        "voids": 1
+      },
+      "lowers": true,
+      "raw_variables": 24,
+      "world_digest": "793474abd27d323b8ef69944ef62fa09a83d192c691a9c21d8a5b74e145d39d5"
+    },
+    {
+      "dense_covariance_entries": 16,
+      "derived_variables": 2,
+      "entities": 2,
+      "id": "beam-b1",
+      "ifc_factor_cliques": {
+        "contains": 1,
+        "fills": 0,
+        "isolated_entities": 0,
+        "voids": 0
+      },
+      "lowers": true,
+      "raw_variables": 4,
+      "world_digest": "baaa454a4c58f9279736abf8e8c4582510b1c25d25adeaf07c9b0a901c307b52"
+    }
+  ],
+  "format": "gat-state-inventory-v1",
+  "note": "Reproducible state inventory: does a model lower, and how much belief does it become. No timings -- those are host-specific and live in incremental-scale-reference-v1.json, which names the machine it was measured on. This replaces benchmark-v1.json, which pinned wall-clock seconds next to world digests that were never measured.",
+  "oracle": "dense-float64"
+}

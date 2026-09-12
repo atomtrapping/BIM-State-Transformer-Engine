@@ -9,21 +9,28 @@
     "factored_demand_n_m": 301000.0
   },
   "format": "gat-beam-disposition-v1",
-  "geometry_authority": "SWEPT_SOLID",
   "model": "gat/demo/beam_model.ifc",
-  "note": "Replayable decision on the shipped beam IFC. Optional attested arithmetic does not prove the Gaussian update.",
+  "note": "Replayable decision on the shipped beam IFC. A design-belief SATISFIED becomes VIOLATED once the measured material certificate is conditioned in. Digests identify the model's bytes, not this path. Note the support block: this model has no body representation at all, so its section modulus is a declared property, not a derived solid.",
   "prior": {
     "capacity_mean_n_m": 315000.00000000006,
     "capacity_sigma_n_m": 7858.912138457841,
     "p_satisfies": 0.9625778267382401,
     "verdict": "SATISFIED",
-    "world_digest": "34626a4da11d2e6289cd2b5592396edc6d2e6bebf2b301057ede6988986486c1"
+    "world_digest": "baaa454a4c58f9279736abf8e8c4582510b1c25d25adeaf07c9b0a901c307b52"
   },
   "revised_after_certificate": {
     "capacity_mean_n_m": 293823.5294117647,
     "capacity_sigma_n_m": 3417.9874792492296,
     "p_satisfies": 0.017881196157638835,
     "verdict": "VIOLATED",
-    "world_digest": "4527394c888ca06b5b781b87dcf741a937ef1fbede675e90405c5320849c7a0b"
+    "world_digest": "a190c0de25022b05256bc285a08960dcc8335b75de89878b8b39fcdadab68cf7"
+  },
+  "support": {
+    "beam_geometry_issues": [
+      "beam Representation must be an IFC reference"
+    ],
+    "beam_geometry_status": "BLOCKED",
+    "geometry_authority": "INSUFFICIENT",
+    "section_modulus_source": "GAT_Structural declared property set"
   }
 }
