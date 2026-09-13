@@ -87,6 +87,29 @@ three different answers depending on who is asking:
 
 Separating those three is the product.
 
+## Three ways to not pass
+
+```bash
+gat verify state.usda        # a world restored from its carrier
+```
+
+![three refusals from gat verify](docs/images/cli-fail-closed.png)
+
+`verify` is clean only when a rule applied *and* it held. The three
+outcomes are the whole fail-closed stance in one command:
+
+- **SATISFIED** — eight rules applied, all above the pass bar.
+- **UNRESOLVED** — no compliance rule reached that world. Nothing was
+  established, and "nothing was checked" is not "nothing is wrong". A
+  `MARGINAL` margin lands here too: at `P = 0.5040` a clearance is a coin
+  toss, not a pass.
+- **refused** — the carrier is a text file and someone raised a storey in
+  it. A stage commits to a module digest, a bytewise world digest, and a
+  configuration digest; the loader recomputes all three and names the one
+  that broke.
+
+Exit codes follow: `0` clean, `1` a finding, `2` input GAT will not accept.
+
 ## The instruments
 
 Four offline, self-contained HTML surfaces. No server, no network, no
@@ -207,6 +230,10 @@ ranked request to measure the variable that would settle it.
   where that reduction is recorded as evidence rather than performed quietly.
 - A ledger replay proves history on a compatible runtime. An unsigned chain
   does not prove publisher identity.
+- A carrier is checked against its own commitment, not trusted. That check
+  is byte-exact on the belief, so a runtime whose numeric configuration
+  differs from the exporting one is refused rather than reconciled — the
+  refusal says which of the two readings it cannot distinguish.
 - A replayable transition commitment binds one accepted step and, when present,
   a **bounded fixed-point arithmetic guest**. It does not prove the Gaussian
   update, the observations, or that the building is safe.

@@ -42,7 +42,7 @@ body{margin:0;background:#0d1117;font:14px/1.55 "IBM Plex Mono",ui-monospace,
 .t{margin-left:11px;color:#7d8590;font-size:12px;letter-spacing:.03em}
 .body{padding:18px 22px 22px}
 .blk{margin-bottom:20px}.blk:last-child{margin-bottom:0}
-.cmd{color:#e6edf3;font-weight:500;margin-bottom:7px}
+.cmd{color:#e6edf3;font-weight:500;margin-bottom:7px;white-space:pre-wrap}
 .p{color:#3fb950;margin-right:9px;font-weight:600}
 pre{margin:0;color:#adbac7;white-space:pre-wrap;word-break:break-word}
 """
@@ -67,13 +67,22 @@ def terminal_page(title: str, runs: list[tuple[str, str]]) -> str:
     )
 
 
-def run(command: str, limit: int = 24) -> str:
-    """Run a documented command and keep what the reader would see."""
+def run(command: str, limit: int = 24, verdict: bool = False) -> str:
+    """Run a documented command and keep what the reader would see.
+
+    ``verdict`` keeps the head of the output *and* its closing disposition
+    line, which is the part that matters and the part a head-truncation
+    always cuts.
+    """
     result = subprocess.run(
         command, shell=True, cwd=REPO, capture_output=True, text=True, timeout=900
     )
-    text = (result.stdout or result.stderr).strip().split("\n")
-    return "\n".join(text[:limit])
+    lines = (result.stdout or result.stderr).strip().split("\n")
+    if not verdict or len(lines) <= limit:
+        return "\n".join(lines[:limit])
+    closing = [line for line in lines if line.startswith("->")]
+    kept = lines[: max(1, limit - len(closing) - 1)]
+    return "\n".join(kept + [f"  ... {len(lines) - len(kept) - len(closing)} more rows"] + closing)
 
 
 # -- the artifacts ----------------------------------------------------------
@@ -140,11 +149,14 @@ def build_artifacts(work: Path) -> dict[str, Path]:
         ),
     ]
     decide = [("python -m gat.demo.workflow", run("python -m gat.demo.workflow", 24))]
+    closed = _fail_closed_panel(work, demo)
 
     start_html = work / "term_start.html"
     decide_html = work / "term_decide.html"
+    closed_html = work / "term_closed.html"
     start_html.write_text(terminal_page("gat — audit and inspect", starts))
     decide_html.write_text(terminal_page("gat — one decision, three ways", decide))
+    closed_html.write_text(terminal_page("gat — three ways to not pass", closed))
 
     return {
         "workbench": workbench,
@@ -152,7 +164,49 @@ def build_artifacts(work: Path) -> dict[str, Path]:
         "ledger": ledger_html,
         "term_start": start_html,
         "term_decide": decide_html,
+        "term_closed": closed_html,
     }
+
+
+def _fail_closed_panel(work: Path, demo: Path) -> list[tuple[str, str]]:
+    """Three refusals, each produced here rather than described.
+
+    A pass, a world no compliance rule reached, and a carrier edited in a
+    text editor. The middle and the last one both used to exit 0.
+    """
+    import re
+
+    from gat import GatSession, ObserveQuantity
+
+    session = GatSession.load_ifc(str(demo / "model.ifc"))
+    session.run(
+        ObserveQuantity.single(session.var("Office-A", "Volume"), 59.4, 0.05)
+    )
+    honest = work / "state.usda"
+    session.export_usd(str(honest))
+
+    text = honest.read_text(encoding="utf-8")
+    height = re.search(r'"mu": \[([0-9.eE+-]+),', text).group(1)
+    forged = work / "forged.usda"
+    forged.write_text(
+        text.replace(f'"mu": [{height},', '"mu": [8.0,', 1), encoding="utf-8"
+    )
+
+    return [
+        (
+            f"gat verify {honest.name}                      # the honest carrier",
+            run(f'gat verify "{honest}"', 5, verdict=True),
+        ),
+        (
+            "gat verify gat/demo/beam_model.ifc          # no rule reaches this world",
+            run("gat verify gat/demo/beam_model.ifc", 4, verdict=True),
+        ),
+        (
+            f"sed 's/{height}/8.0/' {honest.name} > {forged.name}   # raise a storey in an editor\n"
+            f"$ gat verify {forged.name}",
+            run(f'gat verify "{forged}"', 4),
+        ),
+    ]
 
 
 def find_chrome(explicit: str | None) -> str:
@@ -180,6 +234,7 @@ def capture(pages: dict[str, Path], chrome: str) -> None:
         ("workbench", "workbench-state.png", 1500, 940, False, "STATE", 2500),
         ("report", "report-verdict.png", 1100, 900, False, None, 1200),
         ("ledger", "ledger.png", 1100, 900, True, None, 1200),
+        ("term_closed", "cli-fail-closed.png", 1020, 430, True, None, 1000),
     ]
     with sync_playwright() as driver:
         browser = driver.chromium.launch(

@@ -21,7 +21,11 @@ import numpy as np
 import gat.demo
 from gat.engine.executor import execute
 from gat.engine.transform import SetParameter
-from gat.geometry.compliance import check_compliance
+from gat.geometry.compliance import (
+    ComplianceReport,
+    ComplianceRow,
+    check_compliance,
+)
 from gat.geometry.dual import Dual
 from gat.geometry.fusion import FrameTransform, element_level, kl_gauss, moment_match
 from gat.geometry.gaussianize import rot_z
@@ -158,7 +162,45 @@ class TestCompliance(unittest.TestCase):
         fx = _fixture()
         report = check_compliance(fx["session"].world)
         self.assertTrue(report.passed)
+        self.assertEqual(report.status, "SATISFIED")
         self.assertGreater(len(report.rows), 0)
+
+    def test_a_report_with_no_rows_established_nothing(self):
+        """`all(())` is True, so an empty report used to read as compliance."""
+        report = ComplianceReport(())
+        self.assertEqual(report.status, "UNRESOLVED")
+        self.assertFalse(report.passed)
+        self.assertIn("nothing was established", report.render())
+
+    def test_a_world_no_rule_reaches_is_unresolved(self):
+        """The shipped beam model has no clearance, room or height rule."""
+        session = GatSession.load_ifc(
+            os.path.join(os.path.dirname(MODEL), "beam_model.ifc")
+        )
+        report = check_compliance(session.world)
+        self.assertEqual(len(report.rows), 0)
+        self.assertFalse(report.passed)
+
+    def test_a_coin_toss_margin_is_not_a_pass(self):
+        """P = 0.5040 is above the fail bar and nowhere near the pass bar."""
+        report = ComplianceReport(
+            (ComplianceRow("clearance", "duct <= soffit", 0.001, 0.1, 0.5040, "MARGINAL"),)
+        )
+        self.assertEqual(report.status, "UNRESOLVED")
+        self.assertFalse(report.passed)
+        self.assertEqual(report.unresolved, report.rows)
+        self.assertIn("P 0.5040", report.render())
+
+    def test_one_marginal_row_unsettles_a_report_of_passes(self):
+        passing = ComplianceRow("clearance", "a", 1.0, 0.01, 1.0, "PASS")
+        marginal = ComplianceRow("clearance", "b", 0.01, 0.02, 0.6915, "MARGINAL")
+        self.assertTrue(ComplianceReport((passing,)).passed)
+        self.assertFalse(ComplianceReport((passing, marginal)).passed)
+
+    def test_a_violation_outranks_an_unresolved_margin(self):
+        marginal = ComplianceRow("clearance", "b", 0.01, 0.02, 0.6915, "MARGINAL")
+        failing = ComplianceRow("min-clear-height", "c", -0.1, 0.01, 0.0, "FAIL")
+        self.assertEqual(ComplianceReport((marginal, failing)).status, "VIOLATED")
 
     def test_fails_after_lowering_clear_height(self):
         fx = _fixture()

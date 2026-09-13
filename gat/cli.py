@@ -21,7 +21,10 @@ is a rendered headless error, 2 for invalid input, and 3 on I/O errors;
 ``ledger`` returns 0 for a rendered timeline, 2 for an invalid or
 tampered chain, and 3 on I/O errors;
 the state commands return 0 clean, 1 findings (a likely clash, a failed
-verification), and 2 on usage or input errors.
+verification, a compliance margin left unresolved), and 2 on usage or
+input errors.  ``verify`` is clean only when an invariant and a compliance
+rule both applied and both held: a world no rule reached is UNRESOLVED,
+not compliant.
 
 A proposed-element spec (for ``check --proposed``) is a small JSON file:
 
@@ -326,6 +329,7 @@ def _run_verify(args: argparse.Namespace) -> int:
     data = {
         "model": args.model,
         "invariants": {"pass": p, "warn": w, "fail": f},
+        "compliance_status": compliance.status,
         "compliance": [
             {
                 "rule": r.rule,

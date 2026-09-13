@@ -25,8 +25,11 @@ from gat.engine.active_inference import (
 )
 from gat.engine.transform import SetParameter
 from gat.engine.verify import (
+    ALL_INVARIANTS,
     DEFAULT_INVARIANT_CONFIDENCE,
+    InvariantResult,
     Status,
+    VerificationReport,
     run_invariants,
 )
 from gat.ledger import LEDGER_SCHEMA_VERSION, verification_payload
@@ -77,6 +80,27 @@ class DefaultIsTheOldBehaviourTests(unittest.TestCase):
             with self.subTest(confidence=bad):
                 with self.assertRaises(ValueError):
                     run_invariants(world, bad)
+
+
+class EmptyReportTests(unittest.TestCase):
+    """A check that checked nothing is not a pass."""
+
+    def test_a_report_with_no_results_does_not_pass(self) -> None:
+        self.assertFalse(VerificationReport(()).passed)
+
+    def test_every_invariant_speaks_for_any_compilable_world(self) -> None:
+        """Which is why run_invariants cannot produce an empty report."""
+        session = GatSession.load_ifc(MODEL)
+        for invariant in ALL_INVARIANTS:
+            with self.subTest(invariant=invariant.id):
+                results = list(
+                    invariant.check(session.world, DEFAULT_INVARIANT_CONFIDENCE)
+                )
+                self.assertGreater(len(results), 0)
+
+    def test_a_warning_still_passes(self) -> None:
+        warned = InvariantResult("X-01", Status.WARN, "s", 0.0, "advisory")
+        self.assertTrue(VerificationReport((warned,)).passed)
 
 
 class ProbabilityTests(unittest.TestCase):

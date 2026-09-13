@@ -33,6 +33,14 @@ runtime dependency stays numpy-only):
   graph, the typed constraints, representation metadata, and the
   execution trace (provenance).
 
+The stage commits to what it contains.  ``gat_state`` carries a module
+digest, a bytewise world digest, and a configuration digest, and
+``load_usd`` recomputes all three against the reconstruction and refuses a
+stage that does not answer for its own contents.  Without that the carrier
+is a text file with a decorative hash: a hand-edited storey height loaded
+clean and ``gat verify`` reported a pass.  The three digests break in
+distinguishable ways, so a refusal names which one did.
+
 ``state_equivalence`` is the invariant suite: identity, geometry,
 topology, semantics, Gaussian state, constraints, provenance, and
 configuration identity — each checked separately and reported, so
@@ -47,9 +55,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from gat.engine.configuration import configuration_digest
+from gat.engine.configuration import QUANT, configuration_digest
 from gat.engine.executor import World
-from gat.errors import SpfParseError
+from gat.engine.verify import run_invariants
+from gat.errors import SnapshotError, SpfParseError
 from gat.gaussian.state import GaussianState
 from gat.ids import EntityId, VarId
 from gat.ir.core import (
@@ -67,7 +76,12 @@ from gat.ir.core import (
 )
 from gat.ir.exprs import expr_from_obj, expr_to_obj
 
-FORMAT = "gat-usd v0"
+FORMAT = "gat-usd v1"
+
+#: Carriers written before the commitment was checked on load.  They are
+#: refused by version rather than by digest, because a v0 stage predates the
+#: path-independent world identity and would fail for two reasons at once.
+LEGACY_FORMATS = frozenset({"gat-usd v0"})
 
 
 # ---------------------------------------------------------------------------
@@ -187,6 +201,7 @@ def export_usd(world: World, path: str, trace_events: list | None = None) -> int
         ],
         "constraints": [_constraint_obj(c) for c in module.constraints],
         "trace": trace_events or [],
+        "module_digest": module.digest(),
         "world_digest": world.digest(),
         "configuration_digest": configuration_digest(world),
     }
@@ -286,13 +301,80 @@ def _extract_strings(text: str, marker: str) -> list[str]:
         pos = i + 1
 
 
+#: The three commitments a carrier must answer for on load.  They settle
+#: different questions — the transferred IR, the belief bytewise, and the
+#: architectural configuration to within ``QUANT`` — so which one breaks says
+#: what was done to the stage.  Ordered narrowest cause first.
+_COMMITMENTS = ("module_digest", "world_digest", "configuration_digest")
+
+
+def _recorded_commitments(state: dict) -> dict[str, str]:
+    recorded = {}
+    for key in _COMMITMENTS:
+        value = state.get(key)
+        if not isinstance(value, str) or not value:
+            raise SnapshotError(
+                f"carrier records no {key}: there is nothing to check its "
+                "contents against, so it cannot be loaded"
+            )
+        recorded[key] = value
+    return recorded
+
+
+def _check_commitments(world: World, recorded: dict[str, str]) -> None:
+    """Refuse a carrier whose contents are not what it commits to.
+
+    The stage is a text file, and nothing stops an editor from changing a
+    mean in it.  Until this check existed nothing did: a hand-edited storey
+    height loaded clean and ``gat verify`` reported twelve passes.  The three
+    digests fail in distinguishable ways, so the refusal names which one
+    broke rather than reporting a generic mismatch.
+    """
+    verification = run_invariants(world)
+    if not verification.passed:
+        broken = ", ".join(result.invariant_id for result in verification.failures)
+        raise SnapshotError(f"carrier world fails its own invariants: {broken}")
+
+    computed = {
+        "module_digest": world.module.digest(),
+        "world_digest": world.digest(),
+        "configuration_digest": configuration_digest(world),
+    }
+    broken = [key for key in _COMMITMENTS if computed[key] != recorded[key]]
+    if not broken:
+        return
+
+    if "module_digest" in broken:
+        cause = "the transferred IR is not the IR this carrier was written from"
+    elif "configuration_digest" in broken:
+        cause = (
+            "the architectural configuration in this stage is not the one it "
+            "commits to; a quantity was altered after export"
+        )
+    else:
+        # Configuration identity quantizes to QUANT and reads means and sigmas
+        # only, so it can agree while the raw belief does not.  Both readings
+        # are stated because this runtime cannot tell them apart from here.
+        cause = (
+            "the architectural configuration still matches but the belief does "
+            f"not reproduce bytewise: either an edit below {QUANT:g}, or a "
+            "runtime whose numeric configuration differs from the exporting one"
+        )
+    detail = ", ".join(
+        f"{key} {recorded[key][:16]} -> {computed[key][:16]}" for key in broken
+    )
+    raise SnapshotError(f"carrier refused: {cause} [{detail}]")
+
+
 def load_usd(path: str) -> tuple[World, list]:
     """Reconstruct a world from a GAT USD stage.
 
     Returns ``(world, imported_trace_events)``.  The belief is restored
     bitwise (repr-round-tripped floats); the dependency DAG, Jacobian
     machinery, and invariants are recompiled from the transferred
-    definitions, and the reconstructed world is verified before return.
+    definitions.  The reconstruction is then checked against the three
+    digests the carrier commits to, and a stage that does not answer for its
+    own contents is refused rather than loaded.
     """
     with open(path, "r", encoding="utf-8") as fh:
         text = fh.read()
@@ -301,8 +383,24 @@ def load_usd(path: str) -> tuple[World, list]:
     if len(states) != 1:
         raise SpfParseError(f"expected exactly one gat_state block, found {len(states)}")
     state = json.loads(states[0])
-    if state.get("format") != FORMAT:
-        raise SpfParseError(f"unsupported gat-usd format {state.get('format')!r}")
+    declared = state.get("format")
+    layer_formats = _extract_strings(text, "gat_format")
+    if layer_formats != [declared]:
+        # The layer declares the format for any USD tool that opens the stage;
+        # the state block declares it for this decoder. A stage where they
+        # disagree is telling two stories about what it is.
+        raise SpfParseError(
+            f"stage declares format {layer_formats!r} to a reader and "
+            f"{declared!r} to this decoder"
+        )
+    if declared in LEGACY_FORMATS:
+        raise SpfParseError(
+            f"carrier format {declared!r} predates the checked commitment and "
+            f"the path-independent world identity; re-export it as {FORMAT}"
+        )
+    if declared != FORMAT:
+        raise SpfParseError(f"unsupported gat-usd format {declared!r}")
+    recorded = _recorded_commitments(state)
 
     entities: dict[EntityId, Entity] = {}
     for record_text in _extract_strings(text, "gat_entity"):
@@ -348,16 +446,32 @@ def load_usd(path: str) -> tuple[World, list]:
         meta=dict(state["meta"]),
     )
 
-    world = World.compile(module)
+    try:
+        world = World.compile(module)
+    except Exception as exc:
+        raise SnapshotError(f"carrier IR could not be compiled: {exc}") from exc
 
     # Restore the belief bitwise, permuting the serialized order into the
     # fresh binding's canonical order (they normally coincide).
     serialized_order = [_var_from_triple(t) for t in state["var_order"]]
-    perm = [serialized_order.index(v) for v in world.binding.raw_index.vars]
-    mu = np.array([state["mu"][i] for i in perm], dtype=np.float64)
-    sigma_src = np.array(state["sigma"], dtype=np.float64)
-    sigma = sigma_src[np.ix_(perm, perm)]
-    world = world.with_belief(GaussianState(world.binding.raw_index, mu, sigma))
+    carried = set(serialized_order)
+    missing = [v for v in world.binding.raw_index.vars if v not in carried]
+    if missing:
+        raise SnapshotError(
+            f"carrier belief covers {len(serialized_order)} variables but the "
+            f"compiled IR binds {world.binding.n_raw}; {missing[0]} has no "
+            "serialized row"
+        )
+    row_of = {var: row for row, var in enumerate(serialized_order)}
+    perm = [row_of[v] for v in world.binding.raw_index.vars]
+    try:
+        mu = np.array([state["mu"][i] for i in perm], dtype=np.float64)
+        sigma = np.array(state["sigma"], dtype=np.float64)[np.ix_(perm, perm)]
+        world = world.with_belief(GaussianState(world.binding.raw_index, mu, sigma))
+    except Exception as exc:
+        raise SnapshotError(f"carrier belief could not be restored: {exc}") from exc
+
+    _check_commitments(world, recorded)
     return world, list(state.get("trace", []))
 
 

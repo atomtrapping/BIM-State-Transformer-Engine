@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import filecmp
+import math
 import os
 import tempfile
 import unittest
 
-from gat.adapters.usd_io import load_usd, state_equivalence
+from gat.adapters.usd_io import FORMAT, load_usd, state_equivalence
 from gat.engine.transform import ObserveQuantity, SetParameter
-from gat.errors import SpfParseError
+from gat.errors import SnapshotError, SpfParseError
 from gat.session import GatSession
 
 MODEL = os.path.join(
@@ -92,13 +93,81 @@ class UsdInterchangeTests(unittest.TestCase):
         self.assertTrue(filecmp.cmp(self.usd_path, other, shallow=False))
 
     def test_unsupported_format_rejected(self) -> None:
+        with self.assertRaises(SpfParseError):
+            load_usd(self._edited("bad.usda", FORMAT, "gat-usd v999", count=-1))
+
+    def test_a_legacy_carrier_is_named_rather_than_puzzled_over(self) -> None:
+        """A v0 stage predates both the check and the world identity."""
+        with self.assertRaises(SpfParseError) as caught:
+            load_usd(self._edited("legacy.usda", FORMAT, "gat-usd v0", count=-1))
+        self.assertIn("re-export", str(caught.exception))
+
+    # -- the carrier answers for its own contents --------------------------
+
+    def _edited(self, name: str, old: str, new: str, count: int = -1) -> str:
         with open(self.usd_path, encoding="utf-8") as fh:
             text = fh.read()
-        bad = os.path.join(self.tmp.name, "bad.usda")
-        with open(bad, "w", encoding="utf-8") as fh:
-            fh.write(text.replace("gat-usd v0", "gat-usd v999"))
-        with self.assertRaises(SpfParseError):
-            load_usd(bad)
+        self.assertIn(old, text, "the forgery must actually change the stage")
+        edited = text.replace(old, new, count)
+        self.assertNotEqual(text, edited, "the forgery must change the stage")
+        path = os.path.join(self.tmp.name, name)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(edited)
+        return path
+
+    def test_an_edited_mean_is_refused(self) -> None:
+        """The stage is a text file. Editing a storey height used to pass."""
+        mu = float(self.session.world.belief.mu[0])
+        with self.assertRaises(SnapshotError) as caught:
+            load_usd(self._edited("mean.usda", f'"mu": [{mu!r},', '"mu": [8.0,'))
+        self.assertIn("altered after export", str(caught.exception))
+
+    def test_an_edited_ir_is_refused_as_a_different_ir(self) -> None:
+        with self.assertRaises(SnapshotError) as caught:
+            load_usd(self._edited("name.usda", '"name": "Level 1"', '"name": "G"'))
+        self.assertIn("not the IR this carrier was written from", str(caught.exception))
+
+    def test_a_sub_tolerance_edit_is_still_refused(self) -> None:
+        """One ULP on a covariance term.
+
+        Configuration identity quantizes to 1e-6, so it cannot see this and
+        says so; the bytewise world digest is what catches it. That is the
+        same branch a runtime with a different numeric configuration lands
+        in, which is why the refusal states both readings.
+        """
+        off = self._off_diagonal()
+        nudged = math.nextafter(off, math.inf)
+        with self.assertRaises(SnapshotError) as caught:
+            load_usd(self._edited("cov.usda", repr(off), repr(nudged)))
+        message = str(caught.exception)
+        self.assertIn("does not reproduce bytewise", message)
+        self.assertIn("configuration still matches", message)
+
+    def _off_diagonal(self) -> float:
+        """Any non-zero covariance term. Sigma is symmetric, so its text
+        appears twice and both copies move together."""
+        with open(self.usd_path, encoding="utf-8") as fh:
+            text = fh.read()
+        sigma = self.session.world.belief.sigma
+        for i in range(sigma.shape[0]):
+            for j in range(i + 1, sigma.shape[1]):
+                value = float(sigma[i, j])
+                if value != 0.0 and repr(value) in text:
+                    return value
+        self.skipTest("this belief has no uniquely addressable covariance term")
+
+    def test_a_carrier_without_a_commitment_cannot_be_loaded(self) -> None:
+        for key in ("module_digest", "world_digest", "configuration_digest"):
+            with self.subTest(commitment=key):
+                with self.assertRaises(SnapshotError) as caught:
+                    load_usd(
+                        self._edited(f"no_{key}.usda", f'"{key}":', f'"x_{key}":')
+                    )
+                self.assertIn(f"records no {key}", str(caught.exception))
+
+    def test_an_honest_carrier_still_loads(self) -> None:
+        world, _ = load_usd(self.usd_path)
+        self.assertEqual(world.digest(), self.session.world.digest())
 
 
 if __name__ == "__main__":

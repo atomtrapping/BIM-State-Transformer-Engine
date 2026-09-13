@@ -10,6 +10,10 @@ plus a status:
     MARGINAL  fail_p < P < pass_p
     FAIL      P <= fail_p       (default 0.5)
 
+A report is ``SATISFIED`` only when a rule applied and every rule passed.
+One ``MARGINAL`` row leaves it ``UNRESOLVED``, and so does a world no rule
+reached: "nothing was checked" is not "nothing is wrong".
+
 Shipped rules (v0): dimensional clearances from the module's LessEqual
 constraints, minimum room area, and minimum ceiling clear height.  Rules
 share their margin definitions with the chance-constraint penalties in
@@ -50,8 +54,31 @@ class ComplianceReport:
     rows: tuple[ComplianceRow, ...]
 
     @property
+    def status(self) -> str:
+        """``SATISFIED``, ``VIOLATED``, or ``UNRESOLVED``.
+
+        The runtime's own vocabulary, for the two cases a boolean cannot
+        carry.  A ``MARGINAL`` row is a margin this belief could not settle
+        — at ``P = 0.5040`` it is a coin toss, not a pass.  A report with no
+        rows settled nothing at all: ``all(())`` is ``True``, so an empty
+        report used to read as compliance, and a model with no applicable
+        rule exited clean.  Neither is a pass here.
+        """
+        if any(r.status == "FAIL" for r in self.rows):
+            return "VIOLATED"
+        if not self.rows or any(r.status != "PASS" for r in self.rows):
+            return "UNRESOLVED"
+        return "SATISFIED"
+
+    @property
     def passed(self) -> bool:
-        return all(r.status != "FAIL" for r in self.rows)
+        """True only when a rule applied and every one of them is PASS."""
+        return self.status == "SATISFIED"
+
+    @property
+    def unresolved(self) -> tuple[ComplianceRow, ...]:
+        """Rows that neither passed nor failed — what to measure next."""
+        return tuple(r for r in self.rows if r.status == "MARGINAL")
 
     def render(self) -> str:
         counts: dict[str, int] = {}
@@ -60,7 +87,24 @@ class ComplianceReport:
         head = "compliance: " + ", ".join(
             f"{counts.get(s, 0)} {s.lower()}" for s in ("PASS", "MARGINAL", "FAIL")
         )
-        return "\n".join([head] + [r.render() for r in self.rows])
+        status = self.status
+        if status == "SATISFIED":
+            verdict = f"-> SATISFIED  {len(self.rows)} rules, all above the pass bar"
+        elif status == "VIOLATED":
+            failing = [r for r in self.rows if r.status == "FAIL"]
+            verdict = f"-> VIOLATED   {len(failing)} rule(s) below the fail bar"
+        elif not self.rows:
+            verdict = (
+                "-> UNRESOLVED no compliance rule applied to this world; "
+                "nothing was established"
+            )
+        else:
+            worst = min(self.unresolved, key=lambda r: r.p_satisfied)
+            verdict = (
+                f"-> UNRESOLVED {len(self.unresolved)} margin(s) the belief "
+                f"cannot settle; weakest {worst.rule} at P {worst.p_satisfied:.4f}"
+            )
+        return "\n".join([head] + [r.render() for r in self.rows] + [verdict])
 
 
 def _status(p: float, pass_p: float, fail_p: float) -> str:

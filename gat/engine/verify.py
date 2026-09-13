@@ -75,7 +75,18 @@ class VerificationReport:
 
     @property
     def passed(self) -> bool:
-        return all(r.status is not Status.FAIL for r in self.results)
+        """True when something was checked and nothing failed.
+
+        ``all(())`` is ``True``, so a report holding no results would
+        otherwise pass.  ``run_invariants`` cannot produce one — every
+        registered invariant emits at least one result for any compilable
+        world — but this property is also read of reports handed in from a
+        carrier or a snapshot, and a check that checked nothing is not a
+        pass.  A ``WARN`` still passes: warnings are warnings.
+        """
+        return bool(self.results) and all(
+            r.status is not Status.FAIL for r in self.results
+        )
 
     @property
     def failures(self) -> tuple[InvariantResult, ...]:
