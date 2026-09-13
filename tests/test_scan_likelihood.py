@@ -121,7 +121,7 @@ class ScanLikelihoodTests(unittest.TestCase):
             self.scene,
             self.registrar,
             self.scan,
-            self.registration,
+            kwargs.pop("registration", self.registration),
             kwargs.pop("evidence", self.evidence),
             kwargs.pop("plan", self.plan),
             kwargs.pop("pose", self.pose),
@@ -223,6 +223,79 @@ class ScanLikelihoodTests(unittest.TestCase):
             self.likelihood(
                 calibration=replace(
                     ClearanceLikelihoodCalibration(), max_innovation_sigma=1.0
+                )
+            )
+
+    # -- gates on quantities that were measured and then ignored -----------
+
+    def _scan_like(self, ys, zs):
+        """Another survey of the same face, so only the sampling differs."""
+        rng = np.random.default_rng(11)
+        n = len(ys)
+        return np.column_stack(
+            [np.full(n, 5.1) + rng.normal(0.0, 0.002, n), ys, zs]
+        )
+
+    def _likelihood_for(self, scan, **calibration):
+        digest = _scan_digest(scan)
+        return adapt_clearance_likelihood(
+            self.scene,
+            self.registrar,
+            scan,
+            replace(self.registration, scan_digest=digest),
+            replace(self.evidence, scan_digest=digest, point_count=len(scan)),
+            replace(self.plan, scan_digest=digest),
+            replace(self.pose, scan_digest=digest),
+            replace(ClearanceLikelihoodCalibration(), **calibration),
+        )
+
+    def test_two_clusters_at_the_ends_do_not_cover_a_face(self) -> None:
+        """The case min_tangent_rms rewards: it measures spread, and spread
+        is exactly what putting every return at the two extremes maximizes."""
+        rng = np.random.default_rng(7)
+        n = 180
+        ys = np.concatenate(
+            [rng.normal(0.40, 0.004, n // 2), rng.normal(3.60, 0.004, n // 2)]
+        )
+        zs = np.full(n, 2.985) + rng.normal(0.0, 0.003, n)
+        clustered = self._scan_like(ys, zs)
+
+        spread = self._likelihood_for(self._scan_like(rng.uniform(0.35, 3.65, n), zs))
+        with self.assertRaisesRegex(LikelihoodCalibrationError, "do not sample it"):
+            self._likelihood_for(clustered)
+
+        # With the coverage gate stood down, the clustered scan passes the
+        # gate that was supposed to catch it -- and scores *better* on it.
+        waved_through = self._likelihood_for(clustered, min_face_coverage=0.01)
+        self.assertGreater(waved_through.tangent_rms, spread.tangent_rms)
+        self.assertLess(waved_through.face_coverage, spread.face_coverage)
+
+    def test_a_bulged_face_has_no_support_plane(self) -> None:
+        """45 mm of structure over a third of the face used to widen sigma by
+        0.2 mm, because the residual is divided by the return count."""
+        rng = np.random.default_rng(7)
+        n = 180
+        ys = rng.uniform(0.35, 3.65, n)
+        zs = np.full(n, 2.985) + rng.normal(0.0, 0.003, n)
+        flat = self._likelihood_for(self._scan_like(ys, zs))
+
+        bulged = zs.copy()
+        bulged[ys > 2.8] += 0.045
+        with self.assertRaisesRegex(LikelihoodCalibrationError, "shape, not noise"):
+            self._likelihood_for(self._scan_like(ys, bulged))
+
+        self.assertLess(flat.face_residual_rms, 0.010)
+        self.assertGreater(flat.face_coverage, 0.15)
+
+    def test_a_refused_registration_cannot_place_a_measurement(self) -> None:
+        """`accepted` is documented as the gate for any write-back, and
+        nothing downstream read it."""
+        with self.assertRaisesRegex(
+            LikelihoodCalibrationError, "registration was not accepted"
+        ):
+            self.likelihood(
+                registration=replace(
+                    self.registration, accepted=False, refusal="basins tied"
                 )
             )
 

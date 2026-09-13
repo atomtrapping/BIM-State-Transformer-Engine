@@ -43,7 +43,12 @@ from gat.geometry.registration import (
     ScanEvidenceReport,
     ScanRegistrar,
 )
-from gat.geometry.stateio import GeometryScene, rot_z, support_radius
+from gat.geometry.stateio import (
+    GeometryScene,
+    SceneElement,
+    rot_z,
+    support_radius,
+)
 
 
 @dataclass(frozen=True)
@@ -87,6 +92,29 @@ class ClearanceLikelihoodCalibration:
     face_band: float = 0.060
     min_face_effective_points: float = 15.0
     min_tangent_rms: float = 0.100
+    #: Fraction of the face's tangential extent that must actually carry
+    #: returns.  ``min_tangent_rms`` is a *spread*, and spread is maximized
+    #: by putting every point at the two extremes: two 4 mm clusters 3.2 m
+    #: apart score 1.60 where a uniformly covered face scores 0.91, so that
+    #: gate passes the case its own message names.  Coverage is the
+    #: participation ratio over cells of the element's own face: on the demo
+    #: wall a sweep along its length reads 0.35, one that crosses the
+    #: thickness too reads 0.65, and the two clusters read 0.07.  The default
+    #: sits in that gap.  It catches returns that span a face without
+    #: sampling it; it is not a completeness check, and half a wall measured
+    #: well still reads about 0.21.
+    min_face_coverage: float = 0.15
+    #: The face's scatter about its own plane, as a multiple of
+    #: ``sensor_sigma``.  ``sampling_variance = residual_variance /
+    #: face_mass`` is the standard error of a mean, which is only the right
+    #: formula when the residual is independent noise; a 45 mm bulge over a
+    #: third of the face is structure, and dividing it by the point count
+    #: makes a deformed wall look *more* certain the harder you scan it.
+    #: This gate makes that premise a checked precondition.  It is only as
+    #: tight as the declared sensor: a survey that declares 10 mm when its
+    #: instrument delivers 3 mm buys itself a 15 mm tolerance for real
+    #: deformation, and the declaration is what it will be held to.
+    max_residual_sigma_ratio: float = 1.5
     min_element_effective_points: float = 25.0
     min_support_diversity: float = 0.50
     min_assignment_confidence: float = 0.80
@@ -101,6 +129,7 @@ class ClearanceLikelihoodCalibration:
             "face_band",
             "min_face_effective_points",
             "min_tangent_rms",
+            "max_residual_sigma_ratio",
             "min_element_effective_points",
             "max_pose_disagreement_m2",
             "max_innovation_sigma",
@@ -113,6 +142,7 @@ class ClearanceLikelihoodCalibration:
             "min_support_diversity",
             "min_assignment_confidence",
             "min_face_alignment",
+            "min_face_coverage",
         ):
             value = getattr(self, name)
             if not math.isfinite(value) or not 0.0 < value <= 1.0:
@@ -130,6 +160,11 @@ class ScanClearanceLikelihood:
     effective_face_points: float
     face_assignment_confidence: float
     tangent_rms: float
+    #: Occupied fraction of the face's tangential extent, and the face's own
+    #: scatter about its fitted plane. Reported whether or not they gate, so
+    #: an operator sees a face that only just qualified.
+    face_coverage: float
+    face_residual_rms: float
     sampling_sigma: float
     pose_sigma: float
     calibration_sigma: float
@@ -150,9 +185,95 @@ class ScanClearanceLikelihood:
             f"[sampling {self.sampling_sigma:.4f}, pose {self.pose_sigma:.4f}, "
             f"calibration {self.calibration_sigma:.4f}]; "
             f"face_mass={self.effective_face_points:.1f}; "
+            f"coverage={self.face_coverage:.3f}; "
+            f"flatness={self.face_residual_rms*1000:.1f} mm rms; "
             f"assignment={self.face_assignment_confidence:.3f}; "
             f"innovation={self.innovation_sigma:.3f} sigma"
         )
+
+
+#: Returns per cell the coverage grid is sized for, and the cell count it is
+#: clamped between.  A fixed grid would measure point count as much as
+#: clustering: 180 returns in 144 cells cannot fill more than a fraction of
+#: them however evenly they fall.  Sizing the grid to the data keeps the
+#: statistic about *where* the returns are, which is the question.
+COVERAGE_POINTS_PER_CELL = 4.0
+COVERAGE_CELL_BOUNDS = (4, 256)
+
+
+def _face_coverage(
+    element: SceneElement,
+    direction: np.ndarray,
+    points: np.ndarray,
+    weights: np.ndarray,
+) -> float:
+    """Occupied fraction of the element's face, in [0, 1].
+
+    The participation ratio ``(sum w)^2 / sum w^2`` over cells of the face:
+    the effective number of cells the returns occupy, over the number the
+    *element's* face spans.  Near one for a face sampled evenly, small for
+    two tight clusters at its ends whatever the point count — the case
+    ``min_tangent_rms`` rewards, since it measures spread and spread is what
+    two extremes maximize — and small for one sweep line, which covers its
+    own bounding box completely and the wall barely at all.
+
+    The grid is sized to the return count, so coverage is resolution-limited
+    when returns are few: a face carrying the minimum 15 returns is graded
+    on a coarse grid, and it is ``min_face_effective_points`` that keeps a
+    thin measurement out, not this.
+    """
+    live = weights > 0.0
+    if not np.any(live):
+        return 0.0
+    mass = weights[live]
+
+    # The face, in the element's own frame: each local axis spans its own
+    # extent scaled by how much of it survives the projection onto the plane
+    # orthogonal to ``direction``.  This is the denominator; the returns'
+    # bounding box will not do, because a single sweep line covers its own
+    # box completely and the wall barely at all.
+    rotation = rot_z(element.box.angle)
+    along = np.abs(direction @ rotation)
+    spans = np.asarray(element.box.extents) * np.sqrt(
+        np.clip(1.0 - np.square(along), 0.0, 1.0)
+    )
+    order = np.argsort(spans)[::-1][:2]
+    spans, axes = spans[order], rotation[:, order].T
+    if spans[0] <= 0.0:
+        return 0.0
+
+    # Offsets from the box centre, so the grid is anchored to the element
+    # rather than to wherever the returns happened to land.
+    offsets = points[live] - element.box.center()
+
+    low, high = COVERAGE_CELL_BOUNDS
+    total = int(min(high, max(low, len(offsets) / COVERAGE_POINTS_PER_CELL)))
+    # One square cell for both axes, sized so the face yields about ``total``
+    # of them.  Square cells keep a 0.2 m wall thickness from being resolved
+    # as finely as a 3 m length; sizing by area rather than by the long axis
+    # keeps a long thin face from being graded on six cells when hundreds of
+    # returns could support fifty.
+    size = math.sqrt(spans[0] * spans[1] / total) if spans[1] > 0.0 else 0.0
+    if not size > 0.0 or size > spans[1]:
+        size = spans[0] / total        # the face is one cell thick: all length
+    size = min(size, 0.5 * spans[0])   # never fewer than two cells of length
+
+    cells = 1
+    index = np.zeros(len(offsets), dtype=np.int64)
+    for axis in range(2):
+        count = max(1, int(math.ceil(spans[axis] / size)))
+        if count == 1:
+            continue
+        scaled = (offsets @ axes[axis] + 0.5 * spans[axis]) / size
+        index += np.clip(scaled.astype(np.int64), 0, count - 1) * cells
+        cells *= count
+
+    occupancy = np.bincount(index, weights=mass)
+    squared = float(np.square(occupancy).sum())
+    if squared <= 0.0:
+        return 0.0
+    effective = float(occupancy.sum()) ** 2 / squared
+    return float(min(1.0, effective / float(cells)))
 
 
 def adapt_clearance_likelihood(
@@ -184,6 +305,14 @@ def adapt_clearance_likelihood(
     if evidence.scene_version != scene.version or registration.scene_version != scene.version:
         raise LikelihoodCalibrationError(
             "scan evidence, registration, and canonical scene versions differ"
+        )
+    if not registration.accepted:
+        # ``accepted`` is documented as the fit-quality gate for any
+        # write-back, and nothing downstream read it. A pose that failed its
+        # own gate cannot place a measurement on an element.
+        raise LikelihoodCalibrationError(
+            "registration was not accepted"
+            + (f": {registration.refusal}" if registration.refusal else "")
         )
     if not (
         plan.scan_digest
@@ -274,11 +403,28 @@ def adapt_clearance_likelihood(
         np.sqrt(np.sum(weights * np.square(tangent).sum(axis=1)) / face_mass)
     )
     if tangent_rms < calibration.min_tangent_rms:
-        raise LikelihoodCalibrationError("support-face samples are spatially clustered")
+        raise LikelihoodCalibrationError("support-face samples are all in one place")
+
+    face_coverage = _face_coverage(element, direction, posterior.model_points, weights)
+    if face_coverage < calibration.min_face_coverage:
+        raise LikelihoodCalibrationError(
+            f"support face is {face_coverage:.2f} covered (need "
+            f"{calibration.min_face_coverage:.2f}): the returns span the face "
+            "but do not sample it"
+        )
 
     residual_variance = float(
         np.sum(weights * np.square(projections - observed)) / face_mass
     )
+    face_residual_rms = math.sqrt(residual_variance)
+    residual_bound = calibration.max_residual_sigma_ratio * calibration.sensor_sigma
+    if face_residual_rms > residual_bound:
+        raise LikelihoodCalibrationError(
+            f"support face scatters {face_residual_rms*1000:.1f} mm rms about "
+            f"its own plane, beyond {residual_bound*1000:.1f} mm for a "
+            f"{calibration.sensor_sigma*1000:.1f} mm sensor: this is a shape, "
+            "not noise, and its mean is not a support plane"
+        )
     sampling_variance = max(residual_variance, calibration.sensor_sigma**2) / face_mass
     pose_variance = _support_pose_variance(
         points, weights, face_mass, direction, pose
@@ -342,6 +488,8 @@ def adapt_clearance_likelihood(
         effective_face_points=face_mass,
         face_assignment_confidence=face_assignment,
         tangent_rms=tangent_rms,
+        face_coverage=face_coverage,
+        face_residual_rms=face_residual_rms,
         sampling_sigma=math.sqrt(sampling_variance),
         pose_sigma=math.sqrt(max(pose_variance, 0.0)),
         calibration_sigma=calibration.calibration_sigma,

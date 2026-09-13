@@ -228,6 +228,11 @@ ranked request to measure the variable that would settle it.
   and the registrar measures ~115 points/s, so a real capture must be reduced
   first — see [`gat/geometry/scan_filter.py`](gat/geometry/scan_filter.py),
   where that reduction is recorded as evidence rather than performed quietly.
+- A scan measurement now has to survive the quantities that qualify it: a
+  pose the scan does not determine, a face the returns span without sampling,
+  and a face whose scatter is shape rather than noise are each refused by
+  name. `min_face_coverage` catches returns clustered at a face's extremes;
+  it is not a completeness check, and half a wall measured well still passes.
 - A ledger replay proves history on a compatible runtime. An unsigned chain
   does not prove publisher identity.
 - A carrier is checked against its own commitment, not trusted. That check

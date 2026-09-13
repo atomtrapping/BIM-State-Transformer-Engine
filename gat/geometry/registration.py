@@ -17,6 +17,14 @@ buildings and scanners agree about *up* — via:
 * 8 deterministic yaw starts (k * pi/4), each with centroid-matched
   initial translation; best final NLL wins, ties broken by start index.
 
+Those starts are also the only evidence this module has that the winner is
+*unique*.  A symmetric room answers the likelihood equally well at yaw 0 and
+yaw 180: on the shipped demo wall two starts land 10.2 m apart in
+translation and 180 deg apart in yaw, separated by 6.5e-05 nats per point.
+Picking the lower one is a coin toss deciding which end of the building was
+measured, so the starts are clustered into basins and the margin to the best
+*distinct* basin gates acceptance alongside the fit itself.
+
 The reported information matrix is the *complete-data* (responsibility-
 weighted) Gauss-Newton Hessian at the optimum.  For a mixture likelihood
 this overstates the observed information (the missing-data correction of
@@ -71,9 +79,20 @@ class RegistrationResult:
     coarse_trace: tuple[float, ...]     # coarse-stage trace (monotone)
     start_nlls: tuple[float, ...]
     info_matrix: np.ndarray        # (4, 4) over (theta, tx, ty, tz)
-    accepted: bool                 # fit-quality gate for any write-back
+    accepted: bool                 # fit quality AND basin separation
     scan_digest: str               # binds downstream evidence to exact input bytes
     scene_version: str             # canonical-world digest used to derive the field
+    #: Poses the starts converged to, in start order. Kept so the basin
+    #: structure is auditable rather than only summarized.
+    start_poses: tuple[RigidTransformZ, ...] = ()
+    #: Distinct basins the starts found, and the NLL margin from the winning
+    #: basin to the next one. ``inf`` when every start agreed, which is the
+    #: unambiguous case and not a missing measurement.
+    basin_count: int = 1
+    basin_margin: float = math.inf
+    #: Why ``accepted`` is False, or the empty string. A refusal that does
+    #: not say which gate refused sends the surveyor back out blind.
+    refusal: str = ""
 
     def pose_sigma(self) -> np.ndarray:
         """Marginal standard deviations of the pose estimate.
@@ -84,6 +103,43 @@ class RegistrationResult:
         """
         cov = np.linalg.inv(self.info_matrix)
         return np.sqrt(np.clip(np.diag(cov), 0.0, None))
+
+
+#: Two starts are the same basin when their poses agree this closely. Far
+#: looser than convergence jitter (which is arcseconds and micrometres) and
+#: far tighter than a real ambiguity (which is metres and quadrants), so the
+#: classification is not sensitive to either bound.
+BASIN_YAW_TOL = math.radians(5.0)
+BASIN_TRANSLATION_TOL = 0.25
+
+
+def _basin_separation(
+    nlls: list[float],
+    poses: list["RigidTransformZ"],
+    winner: int,
+) -> tuple[int, float]:
+    """How many distinct poses explain this scan, and by how much the best wins.
+
+    Starts that converge to the same pose are one basin and their near-equal
+    NLLs are agreement, not ambiguity — so the margin is measured to the best
+    start in a *different* basin.  With one basin there is no competitor and
+    the margin is infinite: an unopposed answer, not an unmeasured one.
+    """
+    basins: list[list[int]] = []
+    for index, pose in enumerate(poses):
+        for basin in basins:
+            yaw, translation = pose.compose_error(poses[basin[0]])
+            if yaw <= BASIN_YAW_TOL and translation <= BASIN_TRANSLATION_TOL:
+                basin.append(index)
+                break
+        else:
+            basins.append([index])
+
+    home = next(b for b in basins if winner in b)
+    rivals = [min(nlls[i] for i in b) for b in basins if b is not home]
+    if not rivals:
+        return len(basins), math.inf
+    return len(basins), float(min(rivals) - nlls[winner])
 
 
 @dataclass(frozen=True)
@@ -378,7 +434,11 @@ class ScanRegistrar:
         return T, trace[-1], trace
 
     def register(
-        self, scan: np.ndarray, n_starts: int = 8, accept_nll: float = 6.0
+        self,
+        scan: np.ndarray,
+        n_starts: int = 8,
+        accept_nll: float = 6.0,
+        min_basin_margin: float = 0.10,
     ) -> RegistrationResult:
         """Coarse-to-fine multi-start registration.
 
@@ -386,6 +446,14 @@ class ScanRegistrar:
         smoothing scale; stage B refines the best basin to convergence,
         then anneals to the fine scale for the final polish and the
         information matrix.  Fully deterministic; ties break by start index.
+
+        ``min_basin_margin`` is how much better, in nats per point, the
+        winning basin must be than the best *distinct* basin.  Without it a
+        pose is accepted on a tie-break: on a symmetric wall the yaw-0 and
+        yaw-180 solutions differ by 10.2 m of translation and 6.5e-05 nats,
+        and the registrar returns whichever came first.  A margin of 0.10
+        over hundreds of points is decisive evidence; below it the scan does
+        not determine where it was taken from, and saying so is the answer.
         """
         scan = _validated_scan(scan)
         if scan.shape[0] < 10:
@@ -396,6 +464,7 @@ class ScanRegistrar:
         self._set_sigma(self.reg_sigma)
         best: tuple[int, float, RigidTransformZ] | None = None
         start_nlls: list[float] = []
+        start_poses: list[RigidTransformZ] = []
         for k in range(n_starts):
             theta0 = 2.0 * math.pi * k / n_starts
             R0 = rot_z(theta0)
@@ -403,9 +472,13 @@ class ScanRegistrar:
             T0 = RigidTransformZ(theta0, tuple(t0))
             T, final_nll, _ = self.register_from(scan, T0, max_iter=6)
             start_nlls.append(final_nll)
+            start_poses.append(T)
             if best is None or final_nll < best[1] - 1e-12:
                 best = (k, final_nll, T)
         assert best is not None
+        basin_count, basin_margin = _basin_separation(
+            start_nlls, start_poses, best[0]
+        )
 
         T, _, trace_coarse = self.register_from(scan, best[2])
 
@@ -414,6 +487,15 @@ class ScanRegistrar:
         info = self._information_matrix(scan, T)
         self._set_sigma(self.reg_sigma)  # restore for reproducible reuse
 
+        refusals = []
+        if not nll < accept_nll:
+            refusals.append(f"fit nll {nll:.4f} is not below {accept_nll:.4f}")
+        if not basin_margin >= min_basin_margin:
+            refusals.append(
+                f"{basin_count} distinct poses explain this scan within "
+                f"{basin_margin:.3g} nats/point (need {min_basin_margin:g}); "
+                "the scan does not determine where it was taken from"
+            )
         return RegistrationResult(
             transform=T,
             nll=nll,
@@ -421,13 +503,21 @@ class ScanRegistrar:
             coarse_trace=tuple(trace_coarse),
             start_nlls=tuple(start_nlls),
             info_matrix=info,
-            accepted=bool(nll < accept_nll),
+            accepted=not refusals,
             scan_digest=_scan_digest(scan),
             scene_version=self.scene_version,
+            start_poses=tuple(start_poses),
+            basin_count=basin_count,
+            basin_margin=basin_margin,
+            refusal="; ".join(refusals),
         )
 
     def register_ply(
-        self, path: str, n_starts: int = 8, accept_nll: float = 6.0
+        self,
+        path: str,
+        n_starts: int = 8,
+        accept_nll: float = 6.0,
+        min_basin_margin: float = 0.10,
     ) -> RegistrationResult:
         """Register vertices from a standard external PLY artifact.
 
@@ -439,7 +529,9 @@ class ScanRegistrar:
         """
         from gat.geometry.scan_io import load_ply_points
 
-        return self.register(load_ply_points(path), n_starts, accept_nll)
+        return self.register(
+            load_ply_points(path), n_starts, accept_nll, min_basin_margin
+        )
 
     def evidence(
         self, scan: np.ndarray, result: RegistrationResult

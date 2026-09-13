@@ -24,6 +24,8 @@ import gat.demo
 from gat.errors import RegistrationError
 from gat.geometry.registration import (
     RigidTransformZ,
+    _basin_separation,
+    RigidTransformZ,
     ScanRegistrar,
     synthesize_scan,
 )
@@ -239,12 +241,77 @@ class TestPlyHandoff(RegistrationTestBase):
 
         self.assertIs(actual, self.result)
         register.assert_called_once()
-        loaded, n_starts, accept_nll = register.call_args.args
+        loaded, n_starts, accept_nll, basin_margin = register.call_args.args
         # The fixture deliberately serializes float32 PLY coordinates; the
         # loader promotes them to float64 without claiming lost source bits.
         np.testing.assert_allclose(loaded, points, rtol=0.0, atol=1e-6)
         self.assertEqual(n_starts, 4)
         self.assertEqual(accept_nll, 2.5)
+        # A PLY goes through the same gates, basin separation included.
+        self.assertEqual(basin_margin, 0.10)
+
+
+class TestBasinSeparation(RegistrationTestBase):
+    """A best fit is not an answer unless it is the only one.
+
+    The starts are the only evidence this module has that the winner is
+    unique, and until now their NLLs were recorded and discarded.
+    """
+
+    def test_a_full_scan_wins_its_basin_outright(self):
+        self.assertTrue(self.result.accepted)
+        self.assertEqual(self.result.refusal, "")
+        self.assertGreaterEqual(self.result.basin_margin, 0.10)
+
+    def test_every_start_is_kept_with_the_pose_it_found(self):
+        self.assertEqual(
+            len(self.result.start_poses), len(self.result.start_nlls)
+        )
+
+    def test_one_planar_wall_does_not_determine_where_it_was_scanned(self):
+        """Two starts land 180 deg and 10.2 m apart, 6.5e-05 nats apart.
+
+        Before the margin gated acceptance the registrar returned whichever
+        of them came first and reported the fit as accepted.
+        """
+        rng = np.random.default_rng(4)
+        n = 400
+        wall = np.column_stack(
+            [
+                np.full(n, 5.1) + rng.normal(0.0, 0.002, n),
+                rng.uniform(0.35, 3.65, n),
+                np.full(n, 2.985) + rng.normal(0.0, 0.003, n),
+            ]
+        )
+        result = self.registrar.register(wall)
+        self.assertLess(result.nll, 6.0, "the fit itself is fine; that is the point")
+        self.assertGreater(result.basin_count, 1)
+        self.assertLess(result.basin_margin, 0.10)
+        self.assertFalse(result.accepted)
+        self.assertIn("does not determine where it was taken from", result.refusal)
+
+    def test_agreeing_starts_are_one_basin_not_an_ambiguity(self):
+        """Starts that converge to the same pose are agreement. Counting
+        them as rivals would make every clean registration look ambiguous."""
+        poses = [
+            RigidTransformZ(0.10, (1.0, 2.0, 3.0)),
+            RigidTransformZ(0.10 + 1e-9, (1.0, 2.0, 3.0 + 1e-9)),
+            RigidTransformZ(0.10 + math.pi, (9.0, 2.0, 3.0)),
+        ]
+        count, margin = _basin_separation([1.0, 1.0 + 1e-12, 4.0], poses, 0)
+        self.assertEqual(count, 2)
+        self.assertAlmostEqual(margin, 3.0)
+
+    def test_unanimous_starts_are_unopposed_not_unmeasured(self):
+        pose = RigidTransformZ(0.10, (1.0, 2.0, 3.0))
+        count, margin = _basin_separation([1.0, 1.5], [pose, pose], 0)
+        self.assertEqual(count, 1)
+        self.assertEqual(margin, math.inf)
+
+    def test_the_margin_is_a_declared_parameter(self):
+        strict = self.registrar.register(self.scan, min_basin_margin=1e9)
+        self.assertFalse(strict.accepted)
+        self.assertIn("distinct poses", strict.refusal)
 
 
 if __name__ == "__main__":

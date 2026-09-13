@@ -35,6 +35,24 @@ v0 clearance from `assess_clearance` is constructed as `GAUSSIAN_PROXY`.
 That is intentional. A green Gaussian overlap is not an as-built clearance
 acceptance.
 
+## What `SCAN_GMM` now has to survive
+
+A calibrated scan likelihood is the strongest authority this runtime issues,
+so the quantities that qualify it are gates, not annotations:
+
+| Gate | Refuses | Measured on the demo wall |
+|---|---|---|
+| basin separation | a pose the scan does not determine | yaw 0 and yaw 180 tie within 6.5e-05 nats/point, 10.2 m apart |
+| `registration.accepted` | a pose that failed its own fit gate | was computed and never read downstream |
+| `min_face_coverage` | returns that span a face without sampling it | two 4 mm clusters read 0.07 against a sweep's 0.35 |
+| `max_residual_sigma_ratio` | a face whose scatter is shape, not noise | a 45 mm bulge scatters 20.7 mm rms, past 15.0 mm |
+
+The last one also states the premise of the noise model: dividing the face
+residual by the return count is the standard error of a mean, which is the
+right formula only while the residual is independent noise. A face that
+fails the gate is not a support plane, and scanning it harder does not make
+its mean one.
+
 ## Beam mapping
 
 `BeamGeometryStatus` from the IFC adapter maps as:
